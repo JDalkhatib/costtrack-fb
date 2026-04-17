@@ -5,13 +5,20 @@ RUN apt-get update && apt-get install -y poppler-utils && rm -rf /var/lib/apt/li
 
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Copy package files
 COPY package*.json ./
-RUN npm ci --omit=dev
 
-# Copy built dist and source needed at runtime
-COPY dist/ ./dist/
-COPY .env ./.env
+# Install ALL dependencies (including devDependencies needed for build)
+RUN npm ci
+
+# Copy all source files
+COPY . .
+
+# Build client (Vite) and server (esbuild)
+RUN npm run build
+
+# Prune dev dependencies after build
+RUN npm prune --omit=dev
 
 EXPOSE 5000
 
