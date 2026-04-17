@@ -124,7 +124,7 @@ Return this exact JSON structure:
 }`;
 
     const response = await client.messages.create({
-      model: "claude_sonnet_4_6",
+      model: "claude-sonnet-4-5",
       max_tokens: 4096,
       system: systemPrompt,
       messages: [
