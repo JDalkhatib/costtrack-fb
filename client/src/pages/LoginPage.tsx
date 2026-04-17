@@ -43,23 +43,18 @@ export default function LoginPage({ onLogin }: Props) {
     <div className="min-h-screen bg-background flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <svg
-              viewBox="0 0 24 24"
-              width="24"
-              height="24"
-              fill="none"
-              aria-label="CostTrack"
-              className="text-primary"
-            >
-              <rect x="3" y="3" width="8" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
-              <rect x="3" y="11" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1.5" />
-              <rect x="13" y="3" width="8" height="10" rx="1" stroke="currentColor" strokeWidth="1.5" />
-              <rect x="13" y="16" width="8" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
+        <div className="flex flex-col items-center gap-3 mb-8">
+          <img
+            src="/ej-logo.jpg"
+            alt="EJ Logo"
+            width="96"
+            height="96"
+            className="rounded-full object-cover ring-4 ring-primary/20 shadow-md"
+          />
+          <div className="text-center">
+            <span className="text-xl font-semibold tracking-tight block">CostTrack</span>
+            <span className="text-xs text-muted-foreground">Invoice Costing &amp; Cost Tracking</span>
           </div>
-          <span className="text-lg font-semibold tracking-tight">CostTrack</span>
         </div>
 
         {/* Card */}
@@ -111,9 +106,7 @@ export default function LoginPage({ onLogin }: Props) {
           </form>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-4">
-          Invoice Costing &amp; Cost Tracking System
-        </p>
+
       </div>
     </div>
   );

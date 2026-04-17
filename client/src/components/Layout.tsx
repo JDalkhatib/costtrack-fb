@@ -18,20 +18,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <header className="border-b border-border bg-card/80 backdrop-blur sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <svg
-              aria-label="CostTrack"
-              viewBox="0 0 32 32"
-              width="28"
-              height="28"
-              fill="none"
-              className="text-primary"
-            >
-              <rect x="2" y="4" width="20" height="24" rx="2" stroke="currentColor" strokeWidth="2" />
-              <path d="M7 10h10M7 15h10M7 20h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="25" cy="25" r="6" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="2" />
-              <path d="M25 22v3l2 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </svg>
+          <Link href="/" className="flex items-center gap-2.5 shrink-0">
+            <img
+              src="/ej-logo.jpg"
+              alt="EJ"
+              width="32"
+              height="32"
+              className="rounded-full object-cover ring-2 ring-primary/20"
+            />
             <span className="font-semibold text-sm tracking-tight">CostTrack</span>
           </Link>
 

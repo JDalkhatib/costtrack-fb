@@ -2,47 +2,47 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE */
+/* LIGHT MODE — EJ Brand: Burgundy + Teal + Cream */
 :root {
   --button-outline: rgba(0, 0, 0, 0.1);
   --badge-outline: rgba(0, 0, 0, 0.05);
   --opaque-button-border-intensity: -8;
   --elevate-1: rgba(0, 0, 0, 0.03);
   --elevate-2: rgba(0, 0, 0, 0.08);
-  --background: 45 24% 96%;
-  --foreground: 44 23% 14%;
-  --border: 36 8% 81%;
-  --card: 45 25% 97%;
-  --card-foreground: 44 23% 14%;
-  --card-border: 36 10% 91%;
-  --sidebar: 45 20% 95%;
-  --sidebar-foreground: 44 23% 14%;
-  --sidebar-border: 36 8% 88%;
-  --sidebar-primary: 183 98% 22%;
-  --sidebar-primary-foreground: 0 0% 98%;
-  --sidebar-accent: 36 15% 89%;
-  --sidebar-accent-foreground: 44 23% 14%;
-  --sidebar-ring: 183 98% 22%;
-  --popover: 0 0% 95%;
-  --popover-foreground: 0 0% 9%;
-  --popover-border: 0 0% 91%;
-  --primary: 183 98% 22%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 92%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 36 15% 94%;
-  --muted-foreground: 44 10% 40%;
-  --accent: 36 15% 92%;
-  --accent-foreground: 44 23% 14%;
+  --background: 38 30% 95%;        /* warm cream #f5f0eb */
+  --foreground: 345 40% 14%;       /* deep burgundy-brown */
+  --border: 175 18% 78%;           /* soft teal border */
+  --card: 38 28% 97%;              /* slightly lighter cream */
+  --card-foreground: 345 40% 14%;
+  --card-border: 175 18% 85%;
+  --sidebar: 38 26% 94%;
+  --sidebar-foreground: 345 40% 14%;
+  --sidebar-border: 175 18% 80%;
+  --sidebar-primary: 347 72% 32%;  /* EJ burgundy #8B1A2E */
+  --sidebar-primary-foreground: 38 30% 97%;
+  --sidebar-accent: 175 28% 88%;   /* light teal */
+  --sidebar-accent-foreground: 345 40% 14%;
+  --sidebar-ring: 347 72% 32%;
+  --popover: 38 30% 96%;
+  --popover-foreground: 345 40% 14%;
+  --popover-border: 175 18% 84%;
+  --primary: 347 72% 32%;          /* EJ burgundy #8B1A2E */
+  --primary-foreground: 38 30% 97%;
+  --secondary: 175 28% 88%;        /* muted teal #c8dedd */
+  --secondary-foreground: 345 40% 14%;
+  --muted: 175 18% 92%;            /* very light teal */
+  --muted-foreground: 175 12% 42%;
+  --accent: 175 35% 84%;           /* teal accent */
+  --accent-foreground: 345 40% 14%;
   --destructive: 0 84% 42%;
   --destructive-foreground: 0 0% 98%;
-  --input: 36 8% 75%;
-  --ring: 183 98% 22%;
-  --chart-1: 221 83% 45%;
-  --chart-2: 262 83% 48%;
-  --chart-3: 173 58% 39%;
-  --chart-4: 43 74% 49%;
-  --chart-5: 27 87% 55%;
+  --input: 175 14% 76%;
+  --ring: 347 72% 32%;
+  --chart-1: 347 72% 32%;          /* burgundy */
+  --chart-2: 175 35% 47%;          /* teal */
+  --chart-3: 347 55% 52%;          /* lighter burgundy */
+  --chart-4: 43 74% 49%;           /* warm gold */
+  --chart-5: 175 50% 65%;          /* light teal */
   --font-sans: 'General Sans', 'Inter', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
@@ -107,40 +107,40 @@
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255, 255, 255, 0.04);
   --elevate-2: rgba(255, 255, 255, 0.09);
-  --background: 40 10% 8%;
-  --foreground: 40 3% 80%;
-  --border: 40 3% 22%;
-  --card: 40 9% 10%;
-  --card-foreground: 40 3% 80%;
-  --card-border: 40 5% 15%;
-  --sidebar: 40 8% 11%;
-  --sidebar-foreground: 40 3% 80%;
-  --sidebar-border: 40 4% 16%;
-  --sidebar-primary: 188 35% 47%;
-  --sidebar-primary-foreground: 40 10% 8%;
-  --sidebar-accent: 40 5% 16%;
-  --sidebar-accent-foreground: 40 3% 80%;
-  --sidebar-ring: 188 35% 47%;
-  --popover: 0 0% 13%;
-  --popover-foreground: 0 0% 98%;
-  --popover-border: 0 0% 17%;
-  --primary: 188 35% 47%;
-  --primary-foreground: 40 10% 8%;
-  --secondary: 40 6% 18%;
-  --secondary-foreground: 40 3% 80%;
-  --muted: 40 6% 19%;
-  --muted-foreground: 40 4% 62%;
-  --accent: 40 5% 17%;
-  --accent-foreground: 40 3% 80%;
+  --background: 345 18% 9%;        /* deep dark burgundy */
+  --foreground: 38 20% 88%;        /* warm cream text */
+  --border: 175 12% 22%;
+  --card: 345 16% 12%;
+  --card-foreground: 38 20% 88%;
+  --card-border: 175 12% 18%;
+  --sidebar: 345 16% 11%;
+  --sidebar-foreground: 38 20% 88%;
+  --sidebar-border: 175 12% 17%;
+  --sidebar-primary: 347 60% 55%;  /* lighter burgundy for dark bg */
+  --sidebar-primary-foreground: 345 18% 9%;
+  --sidebar-accent: 175 18% 18%;
+  --sidebar-accent-foreground: 38 20% 88%;
+  --sidebar-ring: 347 60% 55%;
+  --popover: 345 16% 13%;
+  --popover-foreground: 38 20% 88%;
+  --popover-border: 175 12% 19%;
+  --primary: 347 60% 55%;          /* brighter burgundy on dark */
+  --primary-foreground: 345 18% 9%;
+  --secondary: 175 18% 18%;        /* dark teal */
+  --secondary-foreground: 38 20% 88%;
+  --muted: 175 12% 16%;
+  --muted-foreground: 175 10% 58%;
+  --accent: 175 20% 20%;
+  --accent-foreground: 38 20% 88%;
   --destructive: 0 72% 55%;
   --destructive-foreground: 0 0% 98%;
-  --input: 40 4% 30%;
-  --ring: 188 35% 47%;
-  --chart-1: 221 83% 65%;
-  --chart-2: 262 83% 68%;
-  --chart-3: 173 58% 55%;
-  --chart-4: 43 74% 65%;
-  --chart-5: 27 87% 65%;
+  --input: 175 10% 28%;
+  --ring: 347 60% 55%;
+  --chart-1: 347 60% 60%;          /* burgundy */
+  --chart-2: 175 40% 55%;          /* teal */
+  --chart-3: 347 45% 70%;          /* light burgundy */
+  --chart-4: 43 74% 65%;           /* warm gold */
+  --chart-5: 175 50% 72%;          /* light teal */
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0);
   --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0), 0px 1px 2px -1px hsl(0 0% 0% / 0);
