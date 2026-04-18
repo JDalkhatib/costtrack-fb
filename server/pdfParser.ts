@@ -13,8 +13,8 @@ interface ParsedLineItem {
   totalCost: number;
   quantity: number;
   unit: string;
-  packSize?: number;
-  packUnit?: string;
+  packSize?: number | null;
+  packUnit?: string | null;
   notes?: string;
 }
 
