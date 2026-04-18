@@ -15,7 +15,7 @@ interface ParsedLineItem {
   unit: string;
   packSize?: number | null;
   packUnit?: string | null;
-  notes?: string;
+  notes?: string | null;
 }
 
 interface ParsedInvoice {
