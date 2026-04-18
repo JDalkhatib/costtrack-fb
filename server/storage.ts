@@ -56,6 +56,19 @@ function mapLineItem(r: LineItemRow): LineItem {
   };
 }
 
+// ── Price history type ───────────────────────────────────
+export interface PriceHistoryEntry {
+  invoiceId: number;
+  invoiceNumber: string;
+  vendor: string;
+  invoiceDate: string;
+  costPerUnit: number;
+  packUnit: string | null;
+  totalCost: number;
+  quantity: number;
+  packSize: number | null;
+}
+
 // ── Storage interface ─────────────────────────────────────
 export interface IStorage {
   getInvoices(): Promise<Invoice[]>;
@@ -70,6 +83,8 @@ export interface IStorage {
   createLineItem(item: InsertLineItem): Promise<LineItem>;
   updateLineItem(id: number, item: Partial<InsertLineItem>): Promise<LineItem | undefined>;
   deleteLineItem(id: number): Promise<void>;
+
+  getPriceHistory(itemName: string): Promise<PriceHistoryEntry[]>;
 }
 
 // ── Supabase implementation ───────────────────────────────
@@ -199,6 +214,52 @@ class SupabaseStorage implements IStorage {
 
   async deleteLineItem(id: number): Promise<void> {
     await supabase.from("line_items").delete().eq("id", id);
+  }
+
+  async getPriceHistory(itemName: string): Promise<PriceHistoryEntry[]> {
+    // Fuzzy match: find all line items whose name contains any word from the query
+    // Use ilike for case-insensitive partial match
+    const { data, error } = await supabase
+      .from("line_items")
+      .select(`
+        id,
+        item_name,
+        total_cost,
+        quantity,
+        pack_size,
+        pack_unit,
+        invoices!inner (
+          id,
+          invoice_number,
+          vendor,
+          invoice_date
+        )
+      `)
+      .ilike("item_name", `%${itemName.trim()}%`)
+      .order("id", { ascending: false })
+      .limit(20);
+
+    if (error) throw new Error(error.message);
+
+    return ((data as any[]) ?? []).map((row) => {
+      const packSize = row.pack_size ? Number(row.pack_size) : null;
+      const quantity = Number(row.quantity);
+      const totalCost = Number(row.total_cost);
+      const totalUnits = packSize && packSize > 0 ? quantity * packSize : quantity;
+      const costPerUnit = totalUnits > 0 ? totalCost / totalUnits : 0;
+      const inv = row.invoices;
+      return {
+        invoiceId: inv.id,
+        invoiceNumber: inv.invoice_number,
+        vendor: inv.vendor,
+        invoiceDate: inv.invoice_date,
+        costPerUnit,
+        packUnit: row.pack_unit ?? null,
+        totalCost,
+        quantity,
+        packSize,
+      };
+    });
   }
 }
 

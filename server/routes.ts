@@ -141,6 +141,18 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // ── Price History ──────────────────────────────────────────
+  app.get("/api/price-history", async (req, res) => {
+    try {
+      const itemName = typeof req.query.item === "string" ? req.query.item : "";
+      if (!itemName.trim()) return res.status(400).json({ error: "item query param required" });
+      const history = await storage.getPriceHistory(itemName);
+      res.json(history);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
   // ── Excel Export ──────────────────────────────────────────
   app.get("/api/export", async (req, res) => {
     try {

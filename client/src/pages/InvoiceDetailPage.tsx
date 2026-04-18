@@ -42,7 +42,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Trash2, Plus, Package } from "lucide-react";
+import { ArrowLeft, Trash2, Plus, Package, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -302,7 +302,65 @@ function AddItemForm({ invoiceId }: { invoiceId: number }) {
   );
 }
 
-function LineItemRow({ item }: { item: LineItem }) {
+interface PriceHistoryEntry {
+  invoiceId: number;
+  invoiceNumber: string;
+  vendor: string;
+  invoiceDate: string;
+  costPerUnit: number;
+  packUnit: string | null;
+}
+
+function PriceTrendBadge({ item, currentInvoiceId }: { item: LineItem; currentInvoiceId: number }) {
+  const { data: history, isLoading } = useQuery<PriceHistoryEntry[]>({
+    queryKey: ["/api/price-history", item.itemName],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/price-history?item=${encodeURIComponent(item.itemName)}`);
+      return res.json();
+    },
+    staleTime: 60_000,
+  });
+
+  if (isLoading) return <span className="text-xs text-muted-foreground animate-pulse">…</span>;
+  if (!history || history.length < 2) return null;
+
+  // Sort by invoice date ascending
+  const sorted = [...history].sort(
+    (a, b) => new Date(a.invoiceDate).getTime() - new Date(b.invoiceDate).getTime()
+  );
+
+  // Find the current entry and the one just before it
+  const currentIdx = sorted.findIndex((h) => h.invoiceId === currentInvoiceId);
+  if (currentIdx <= 0) return null; // no previous entry to compare against
+
+  const current = sorted[currentIdx];
+  const previous = sorted[currentIdx - 1];
+  const diff = current.costPerUnit - previous.costPerUnit;
+  const pct = previous.costPerUnit > 0 ? (diff / previous.costPerUnit) * 100 : 0;
+
+  if (Math.abs(pct) < 0.1) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-xs font-medium text-muted-foreground">
+        <Minus size={11} /> No change
+      </span>
+    );
+  }
+
+  const isUp = diff > 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 text-xs font-semibold ${
+        isUp ? "text-red-600 dark:text-red-400" : "text-green-600 dark:text-green-400"
+      }`}
+      title={`Was $${previous.costPerUnit.toFixed(4)}/${previous.packUnit ?? "unit"} on invoice #${previous.invoiceNumber}`}
+    >
+      {isUp ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+      {isUp ? "+" : ""}{pct.toFixed(1)}%
+    </span>
+  );
+}
+
+function LineItemRow({ item, invoiceId }: { item: LineItem; invoiceId: number }) {
   const { toast } = useToast();
   const { costPerUnit, label } = calcCostPerUnit(item);
   const color = CATEGORY_COLORS[item.category] ?? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
@@ -340,12 +398,15 @@ function LineItemRow({ item }: { item: LineItem }) {
         )}
       </td>
       <td className="py-2.5 px-3 text-right">
-        <span
-          className="font-semibold text-sm text-primary tabular-nums"
-          data-testid={`text-cost-per-unit-${item.id}`}
-        >
-          ${costPerUnit.toFixed(4)}{label}
-        </span>
+        <div className="flex flex-col items-end gap-0.5">
+          <span
+            className="font-semibold text-sm text-primary tabular-nums"
+            data-testid={`text-cost-per-unit-${item.id}`}
+          >
+            ${costPerUnit.toFixed(4)}{label}
+          </span>
+          <PriceTrendBadge item={item} currentInvoiceId={invoiceId} />
+        </div>
       </td>
       <td className="py-2.5 px-3 text-right">
         <AlertDialog>
@@ -460,7 +521,7 @@ export default function InvoiceDetailPage() {
               </thead>
               <tbody>
                 {items.map((item) => (
-                  <LineItemRow key={item.id} item={item} />
+                  <LineItemRow key={item.id} item={item} invoiceId={invoiceId} />
                 ))}
               </tbody>
               <tfoot>
