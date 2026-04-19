@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Lock, Loader2, Eye, EyeOff, ChevronLeft } from "lucide-react";
 import { setAuth } from "@/lib/auth";
+import { CostTrackLogo } from "@/components/CostTrackLogo";
 
 const API_BASE = "__PORT_5000__".startsWith("__") ? "" : "__PORT_5000__";
 
@@ -71,17 +72,13 @@ export default function LoginPage({ onLogin }: Props) {
       <div className="w-full max-w-sm">
 
         {/* Logo */}
-        <div className="flex flex-col items-center gap-3 mb-8">
-          <img
-            src="/ej-logo.jpg"
-            alt="EJ Logo"
-            width="96"
-            height="96"
-            className="rounded-full object-cover ring-4 ring-primary/20 shadow-md"
-          />
+        <div className="flex flex-col items-center gap-4 mb-8">
+          <CostTrackLogo size={80} />
           <div className="text-center">
-            <span className="text-xl font-semibold tracking-tight block">CostTrack</span>
-            <span className="text-xs text-muted-foreground">Invoice Costing &amp; Cost Tracking</span>
+            <span className="text-2xl font-bold tracking-tight block">
+              Cost<span style={{ color: "#F59E0B" }}>Track</span>
+            </span>
+            <span className="text-xs text-muted-foreground tracking-wide uppercase">Invoice Intelligence</span>
           </div>
         </div>
 

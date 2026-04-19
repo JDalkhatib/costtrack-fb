@@ -2,6 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useTheme } from "@/components/ThemeProvider";
 import { Sun, Moon, FileText, Tag, PlusCircle, LogOut, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CostTrackLogo } from "@/components/CostTrackLogo";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,15 +29,11 @@ export function Layout({ children, restaurantName, isAdmin, onLogout }: LayoutPr
 
           {/* Logo + restaurant name */}
           <Link href="/" className="flex items-center gap-2.5 shrink-0">
-            <img
-              src="/ej-logo.jpg"
-              alt="EJ"
-              width="32"
-              height="32"
-              className="rounded-full object-cover ring-2 ring-primary/20"
-            />
+            <CostTrackLogo size={34} />
             <div className="flex flex-col leading-tight">
-              <span className="font-semibold text-sm tracking-tight">CostTrack</span>
+              <span className="font-semibold text-sm tracking-tight">
+                Cost<span style={{ color: "#F59E0B" }}>Track</span>
+              </span>
               {restaurantName && (
                 <span className="text-xs text-muted-foreground leading-tight">{restaurantName}</span>
               )}
