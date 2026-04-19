@@ -144,7 +144,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
   // ── Recent Auto-Imports ────────────────────────────────────
   app.get("/api/auto-imports/recent", async (req, res) => {
     try {
-      const { data, error } = await (await import("./supabase")).supabase
+      const sb = (await import("./supabase")).default;
+      const { data, error } = await sb
         .from("processed_emails")
         .select("id, subject, sender, received_at, invoice_id, status, error_message")
         .eq("status", "processed")

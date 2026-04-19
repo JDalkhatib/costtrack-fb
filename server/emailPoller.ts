@@ -7,7 +7,7 @@
 
 import imaps from "imap-simple";
 import { simpleParser } from "mailparser";
-import { supabase } from "./supabase";
+import supabase from "./supabase";
 import { storage } from "./storage";
 import { parsePdfInvoice } from "./pdfParser";
 
@@ -160,9 +160,7 @@ export async function pollInvoiceEmails() {
             invoiceNumber: invoiceData.invoiceNumber,
             vendor: invoiceData.vendor,
             invoiceDate: invoiceData.invoiceDate,
-            totalAmount: invoiceData.items.reduce((sum: number, i: any) => sum + (i.totalCost ?? 0), 0),
             notes: invoiceData.notes ?? `Auto-imported from email: ${subject}`,
-            category: "Food",
           });
 
           // Save line items
