@@ -125,7 +125,8 @@ export async function getRestaurants(_req: Request, res: Response) {
     .from("restaurants")
     .select("id, name")
     .eq("active", true)
-    .order("name");
+    .order("sort_order", { ascending: true })
+    .order("name", { ascending: true });
 
   if (error) return res.status(500).json({ error: error.message });
   res.json(data ?? []);

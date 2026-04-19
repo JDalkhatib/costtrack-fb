@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -15,13 +15,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { PlusCircle, Trash2, Pencil, Check, X, ShieldCheck, Eye, EyeOff, ToggleLeft, ToggleRight } from "lucide-react";
+import { PlusCircle, Trash2, Pencil, Check, X, ShieldCheck, Eye, EyeOff, ToggleLeft, ToggleRight, GripVertical } from "lucide-react";
 
 interface Restaurant {
   id: number;
   name: string;
   active: boolean;
   createdAt: string;
+  sortOrder: number;
   gmailUser?: string | null;
   gmailAppPassword?: string | null;
 }
@@ -43,6 +44,12 @@ export default function AdminPage() {
   const [editGmailUser, setEditGmailUser] = useState("");
   const [editGmailPass, setEditGmailPass] = useState("");
   const [showEditGmailPw, setShowEditGmailPw] = useState(false);
+
+  // Drag state
+  const dragItem = useRef<number | null>(null);   // index being dragged
+  const dragOver = useRef<number | null>(null);   // index being hovered
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   const { data: restaurants = [], isLoading } = useQuery<Restaurant[]>({
     queryKey: ["/api/admin/restaurants"],
@@ -107,6 +114,18 @@ export default function AdminPage() {
     },
   });
 
+  const reorderMutation = useMutation({
+    mutationFn: async (orderedIds: number[]) => {
+      const res = await apiRequest("PUT", "/api/admin/restaurants/reorder", { orderedIds });
+      if (!res.ok) throw new Error((await res.json()).error);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/restaurants"] });
+    },
+    onError: (err: any) => toast({ title: "Reorder failed", description: err.message, variant: "destructive" }),
+  });
+
   function startEdit(r: Restaurant) {
     setEditingId(r.id);
     setEditName(r.name);
@@ -115,6 +134,40 @@ export default function AdminPage() {
     setEditGmailUser(r.gmailUser ?? "");
     setEditGmailPass(""); // never prefill password
     setShowEditGmailPw(false);
+  }
+
+  // ── Drag handlers ──────────────────────────────────────────
+  function handleDragStart(e: React.DragEvent, index: number) {
+    dragItem.current = index;
+    setDragIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  }
+
+  function handleDragEnter(index: number) {
+    dragOver.current = index;
+    setDropIndex(index);
+  }
+
+  function handleDragEnd() {
+    const from = dragItem.current;
+    const to = dragOver.current;
+    setDragIndex(null);
+    setDropIndex(null);
+    dragItem.current = null;
+    dragOver.current = null;
+
+    if (from === null || to === null || from === to) return;
+
+    // Reorder locally
+    const reordered = [...restaurants];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+
+    // Optimistic update
+    queryClient.setQueryData(["/api/admin/restaurants"], reordered);
+
+    // Persist to server
+    reorderMutation.mutate(reordered.map((r) => r.id));
   }
 
   return (
@@ -163,8 +216,13 @@ export default function AdminPage() {
 
       {/* Restaurant list */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
-        <div className="px-5 py-3 border-b border-border">
+        <div className="px-5 py-3 border-b border-border flex items-center justify-between">
           <h2 className="text-sm font-semibold">Restaurants ({restaurants.length})</h2>
+          {restaurants.length > 1 && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <GripVertical size={12} /> Drag to reorder
+            </p>
+          )}
         </div>
 
         {isLoading ? (
@@ -175,8 +233,22 @@ export default function AdminPage() {
           </div>
         ) : (
           <ul className="divide-y divide-border">
-            {restaurants.map((r) => (
-              <li key={r.id} className="px-5 py-4">
+            {restaurants.map((r, index) => (
+              <li
+                key={r.id}
+                draggable={editingId !== r.id}
+                onDragStart={(e) => handleDragStart(e, index)}
+                onDragEnter={() => handleDragEnter(index)}
+                onDragOver={(e) => e.preventDefault()}
+                onDragEnd={handleDragEnd}
+                className={[
+                  "px-5 py-4 transition-colors",
+                  dragIndex === index ? "opacity-40" : "",
+                  dropIndex === index && dragIndex !== index
+                    ? "bg-accent/60 border-l-2 border-primary"
+                    : "",
+                ].join(" ")}
+              >
                 {editingId === r.id ? (
                   /* Edit mode */
                   <div className="space-y-2">
@@ -238,6 +310,14 @@ export default function AdminPage() {
                 ) : (
                   /* View mode */
                   <div className="flex items-center gap-3">
+                    {/* Drag handle */}
+                    <div
+                      className="text-muted-foreground/40 hover:text-muted-foreground cursor-grab active:cursor-grabbing shrink-0"
+                      title="Drag to reorder"
+                    >
+                      <GripVertical size={15} />
+                    </div>
+
                     <div className="flex-1 min-w-0">
                       <span className={`text-sm font-medium ${!r.active ? "text-muted-foreground line-through" : ""}`}>
                         {r.name}

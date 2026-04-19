@@ -209,6 +209,19 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // Reorder restaurants — body: { orderedIds: number[] }
+  app.put("/api/admin/restaurants/reorder", async (req, res) => {
+    try {
+      if (!req.auth?.isAdmin) return res.status(403).json({ error: "Admin only" });
+      const { orderedIds } = req.body;
+      if (!Array.isArray(orderedIds)) return res.status(400).json({ error: "orderedIds array required" });
+      await storage.reorderRestaurants(orderedIds);
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
   // ── Recent Auto-Imports ────────────────────────────────────
   app.get("/api/auto-imports/recent", async (req, res) => {
     try {

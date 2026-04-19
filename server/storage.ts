@@ -35,6 +35,7 @@ export interface Restaurant {
   name: string;
   active: boolean;
   createdAt: string;
+  sortOrder: number;
   gmailUser?: string | null;
   gmailAppPassword?: string | null;
 }
@@ -102,6 +103,7 @@ export interface IStorage {
   createRestaurant(name: string, password: string): Promise<Restaurant>;
   updateRestaurant(id: number, data: { name?: string; password?: string; active?: boolean }): Promise<Restaurant | undefined>;
   deleteRestaurant(id: number): Promise<void>;
+  reorderRestaurants(orderedIds: number[]): Promise<void>;
 
   // Recipes
   getRecipes(restaurantId: number | null): Promise<Recipe[]>;
@@ -298,27 +300,37 @@ class SupabaseStorage implements IStorage {
   async getRestaurants(): Promise<Restaurant[]> {
     const { data, error } = await supabase
       .from("restaurants")
-      .select("id, name, active, created_at, gmail_user, gmail_app_password")
-      .order("name");
+      .select("id, name, active, created_at, sort_order, gmail_user, gmail_app_password")
+      .order("sort_order", { ascending: true })
+      .order("name", { ascending: true });
     if (error) throw new Error(error.message);
     return (data ?? []).map((r: any) => ({
       id: r.id,
       name: r.name,
       active: r.active,
       createdAt: r.created_at,
+      sortOrder: r.sort_order ?? 0,
       gmailUser: r.gmail_user ?? null,
       gmailAppPassword: r.gmail_app_password ?? null,
     }));
   }
 
   async createRestaurant(name: string, password: string): Promise<Restaurant> {
+    // Assign sort_order = max existing + 1 so new restaurants go to the bottom
+    const { data: existing } = await supabase
+      .from("restaurants")
+      .select("sort_order")
+      .order("sort_order", { ascending: false })
+      .limit(1)
+      .single();
+    const nextOrder = existing ? (existing.sort_order ?? 0) + 1 : 0;
     const { data, error } = await supabase
       .from("restaurants")
-      .insert({ name, password_hash: password, active: true })
+      .insert({ name, password_hash: password, active: true, sort_order: nextOrder })
       .select()
       .single();
     if (error) throw new Error(error.message);
-    return { id: data.id, name: data.name, active: data.active, createdAt: data.created_at };
+    return { id: data.id, name: data.name, active: data.active, createdAt: data.created_at, sortOrder: data.sort_order ?? 0 };
   }
 
   async updateRestaurant(id: number, update: { name?: string; password?: string; active?: boolean; gmailUser?: string | null; gmailAppPassword?: string | null }): Promise<Restaurant | undefined> {
@@ -338,12 +350,22 @@ class SupabaseStorage implements IStorage {
     if (error) return undefined;
     return {
       id: data.id, name: data.name, active: data.active, createdAt: data.created_at,
+      sortOrder: data.sort_order ?? 0,
       gmailUser: data.gmail_user ?? null, gmailAppPassword: data.gmail_app_password ?? null,
     };
   }
 
   async deleteRestaurant(id: number): Promise<void> {
     await supabase.from("restaurants").delete().eq("id", id);
+  }
+
+  async reorderRestaurants(orderedIds: number[]): Promise<void> {
+    // Update sort_order for each id based on its position in the array
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        supabase.from("restaurants").update({ sort_order: index }).eq("id", id)
+      )
+    );
   }
 
   // ── Recipes ──────────────────────────────────────────────────
