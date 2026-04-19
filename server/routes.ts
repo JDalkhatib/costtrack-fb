@@ -141,6 +141,22 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // ── Recent Auto-Imports ────────────────────────────────────
+  app.get("/api/auto-imports/recent", async (req, res) => {
+    try {
+      const { data, error } = await (await import("./supabase")).supabase
+        .from("processed_emails")
+        .select("id, subject, sender, received_at, invoice_id, status, error_message")
+        .eq("status", "processed")
+        .order("received_at", { ascending: false })
+        .limit(10);
+      if (error) throw new Error(error.message);
+      res.json(data ?? []);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
   // ── Price History ──────────────────────────────────────────
   app.get("/api/price-history", async (req, res) => {
     try {

@@ -30,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { FileText, Trash2, ChevronRight, PlusCircle, Calendar, Building2, Download, Loader2 } from "lucide-react";
+import { FileText, Trash2, ChevronRight, PlusCircle, Calendar, Building2, Download, Loader2, Mail, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
@@ -54,6 +54,19 @@ export default function InvoicesPage() {
   const [exportMonth, setExportMonth] = useState<string>(format(new Date(), "yyyy-MM"));
   const [isExporting, setIsExporting] = useState(false);
   const monthOptions = getMonthOptions();
+
+  // Auto-import notifications
+  const [dismissedImports, setDismissedImports] = useState<number[]>([]);
+  const { data: recentImports } = useQuery<any[]>({
+    queryKey: ["/api/auto-imports/recent"],
+    refetchInterval: 5 * 60 * 1000, // refresh every 5 min
+    staleTime: 60_000,
+  });
+  const newImports = (recentImports ?? []).filter((r) => {
+    if (dismissedImports.includes(r.id)) return false;
+    const age = Date.now() - new Date(r.received_at).getTime();
+    return age < 24 * 60 * 60 * 1000; // only show if within last 24h
+  });
 
   const { data: invoices, isLoading } = useQuery<Invoice[]>({
     queryKey: ["/api/invoices"],
@@ -113,6 +126,39 @@ export default function InvoicesPage() {
 
   return (
     <div>
+
+      {/* Auto-import notifications */}
+      {newImports.length > 0 && (
+        <div className="space-y-2 mb-5">
+          {newImports.map((imp) => (
+            <div
+              key={imp.id}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary/10 border border-primary/20 text-sm"
+            >
+              <Mail size={15} className="text-primary shrink-0" />
+              <span className="flex-1">
+                <span className="font-medium">New invoice auto-imported</span>
+                {" "}from your email
+                {imp.subject ? (
+                  <span className="text-muted-foreground"> &middot; &ldquo;{imp.subject}&rdquo;</span>
+                ) : null}
+                {imp.invoice_id ? (
+                  <Link href={`/invoices/${imp.invoice_id}`} className="ml-2 text-primary underline underline-offset-2">
+                    View &rarr;
+                  </Link>
+                ) : null}
+              </span>
+              <button
+                onClick={() => setDismissedImports((d) => [...d, imp.id])}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X size={13} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold">Invoices</h1>
