@@ -22,6 +22,8 @@ interface Restaurant {
   name: string;
   active: boolean;
   createdAt: string;
+  gmailUser?: string | null;
+  gmailAppPassword?: string | null;
 }
 
 export default function AdminPage() {
@@ -38,6 +40,9 @@ export default function AdminPage() {
   const [editName, setEditName] = useState("");
   const [editPassword, setEditPassword] = useState("");
   const [showEditPw, setShowEditPw] = useState(false);
+  const [editGmailUser, setEditGmailUser] = useState("");
+  const [editGmailPass, setEditGmailPass] = useState("");
+  const [showEditGmailPw, setShowEditGmailPw] = useState(false);
 
   const { data: restaurants = [], isLoading } = useQuery<Restaurant[]>({
     queryKey: ["/api/admin/restaurants"],
@@ -63,9 +68,11 @@ export default function AdminPage() {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, name, password }: { id: number; name: string; password: string }) => {
+    mutationFn: async ({ id, name, password, gmailUser, gmailAppPassword }: { id: number; name: string; password: string; gmailUser: string; gmailAppPassword: string }) => {
       const body: any = { name };
       if (password) body.password = password;
+      body.gmailUser = gmailUser || null;
+      body.gmailAppPassword = gmailAppPassword || null;
       const res = await apiRequest("PATCH", `/api/admin/restaurants/${id}`, body);
       if (!res.ok) throw new Error((await res.json()).error);
       return res.json();
@@ -73,6 +80,8 @@ export default function AdminPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/restaurants"] });
       setEditingId(null);
+      setEditGmailUser("");
+      setEditGmailPass("");
       toast({ title: "Restaurant updated" });
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
@@ -103,6 +112,9 @@ export default function AdminPage() {
     setEditName(r.name);
     setEditPassword("");
     setShowEditPw(false);
+    setEditGmailUser(r.gmailUser ?? "");
+    setEditGmailPass(""); // never prefill password
+    setShowEditGmailPw(false);
   }
 
   return (
@@ -167,40 +179,61 @@ export default function AdminPage() {
               <li key={r.id} className="px-5 py-4">
                 {editingId === r.id ? (
                   /* Edit mode */
-                  <div className="flex gap-2 flex-wrap items-center">
-                    <Input
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="flex-1 min-w-32 h-8 text-sm"
-                    />
-                    <div className="relative flex-1 min-w-32">
+                  <div className="space-y-2">
+                    <div className="flex gap-2 flex-wrap items-center">
                       <Input
-                        type={showEditPw ? "text" : "password"}
-                        placeholder="New password (optional)"
-                        value={editPassword}
-                        onChange={(e) => setEditPassword(e.target.value)}
-                        className="pr-9 h-8 text-sm"
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        placeholder="Restaurant name"
+                        className="flex-1 min-w-32 h-8 text-sm"
                       />
-                      <button
-                        type="button"
-                        onClick={() => setShowEditPw((v) => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                        tabIndex={-1}
-                      >
-                        {showEditPw ? <EyeOff size={12} /> : <Eye size={12} />}
-                      </button>
+                      <div className="relative flex-1 min-w-32">
+                        <Input
+                          type={showEditPw ? "text" : "password"}
+                          placeholder="New password (optional)"
+                          value={editPassword}
+                          onChange={(e) => setEditPassword(e.target.value)}
+                          className="pr-9 h-8 text-sm"
+                        />
+                        <button type="button" onClick={() => setShowEditPw((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" tabIndex={-1}>
+                          {showEditPw ? <EyeOff size={12} /> : <Eye size={12} />}
+                        </button>
+                      </div>
                     </div>
-                    <Button
-                      size="sm"
-                      className="h-8 gap-1"
-                      onClick={() => updateMutation.mutate({ id: r.id, name: editName, password: editPassword })}
-                      disabled={!editName.trim() || updateMutation.isPending}
-                    >
-                      <Check size={12} /> Save
-                    </Button>
-                    <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingId(null)}>
-                      <X size={12} />
-                    </Button>
+                    {/* Email inbox fields */}
+                    <div className="flex gap-2 flex-wrap items-center">
+                      <Input
+                        value={editGmailUser}
+                        onChange={(e) => setEditGmailUser(e.target.value)}
+                        placeholder="Invoice email (e.g. location@gmail.com)"
+                        className="flex-1 min-w-40 h-8 text-sm"
+                        type="email"
+                      />
+                      <div className="relative flex-1 min-w-32">
+                        <Input
+                          type={showEditGmailPw ? "text" : "password"}
+                          placeholder={editGmailUser ? "Gmail App Password" : "App password"}
+                          value={editGmailPass}
+                          onChange={(e) => setEditGmailPass(e.target.value)}
+                          className="pr-9 h-8 text-sm"
+                        />
+                        <button type="button" onClick={() => setShowEditGmailPw((v) => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" tabIndex={-1}>
+                          {showEditGmailPw ? <EyeOff size={12} /> : <Eye size={12} />}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" className="h-8 gap-1"
+                        onClick={() => updateMutation.mutate({ id: r.id, name: editName, password: editPassword, gmailUser: editGmailUser, gmailAppPassword: editGmailPass })}
+                        disabled={!editName.trim() || updateMutation.isPending}>
+                        <Check size={12} /> Save
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-8" onClick={() => setEditingId(null)}>
+                        <X size={12} /> Cancel
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   /* View mode */

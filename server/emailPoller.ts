@@ -54,18 +54,10 @@ async function markProcessed(opts: {
   );
 }
 
-// ── Main poll function ────────────────────────────────────────
+// ── Poll a single inbox ───────────────────────────────────────
 
-export async function pollInvoiceEmails() {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-
-  if (!user || !pass) {
-    console.log("[email] GMAIL_USER or GMAIL_APP_PASSWORD not set — skipping poll");
-    return;
-  }
-
-  console.log(`[email] Polling ${user} for new invoices...`);
+async function pollInbox(user: string, pass: string, restaurantId: number | null, label: string) {
+  console.log(`[email] Polling ${label} (${user})...`);
 
   const config = {
     imap: {
@@ -85,16 +77,12 @@ export async function pollInvoiceEmails() {
     connection = await imaps.connect(config);
     await connection.openBox("INBOX");
 
-    // Search for unseen emails — process all unread first, then fall back to last 7 days
-    const searchCriteria = ["UNSEEN"];
-    const fetchOptions = {
+    const messages = await connection.search(["UNSEEN"], {
       bodies: ["HEADER", ""],
-      markSeen: false, // we'll mark seen manually after successful processing
+      markSeen: false,
       struct: true,
-    };
-
-    const messages = await connection.search(searchCriteria, fetchOptions);
-    console.log(`[email] Found ${messages.length} unseen message(s)`);
+    });
+    console.log(`[email] ${label}: ${messages.length} unseen message(s)`);
 
     let imported = 0;
     let skipped = 0;
@@ -104,21 +92,16 @@ export async function pollInvoiceEmails() {
       const headers = headerPart?.body ?? {};
       const messageId: string =
         (Array.isArray(headers["message-id"]) ? headers["message-id"][0] : headers["message-id"]) ??
-        `fallback-${message.attributes.uid}`;
+        `fallback-${user}-${message.attributes.uid}`;
       const subject: string =
         (Array.isArray(headers["subject"]) ? headers["subject"][0] : headers["subject"]) ?? "(no subject)";
       const from: string =
         (Array.isArray(headers["from"]) ? headers["from"][0] : headers["from"]) ?? "";
 
-      // Skip if already processed
-      if (await isAlreadyProcessed(messageId)) {
-        skipped++;
-        continue;
-      }
+      if (await isAlreadyProcessed(messageId)) { skipped++; continue; }
 
       console.log(`[email] Processing: "${subject}" from ${from}`);
 
-      // Get full message body to parse attachments
       const bodyPart = message.parts.find((p: any) => p.which === "");
       if (!bodyPart) {
         await markProcessed({ messageId, subject, sender: from, status: "no_pdf" });
@@ -129,41 +112,30 @@ export async function pollInvoiceEmails() {
       try {
         parsed = await simpleParser(bodyPart.body);
       } catch (e) {
-        console.error("[email] Failed to parse message body:", e);
         await markProcessed({ messageId, subject, sender: from, status: "error", errorMessage: String(e) });
         continue;
       }
 
-      // Find PDF attachments
       const pdfAttachments = (parsed.attachments ?? []).filter(
-        (att: any) =>
-          att.contentType === "application/pdf" ||
-          (att.filename ?? "").toLowerCase().endsWith(".pdf")
+        (att: any) => att.contentType === "application/pdf" || (att.filename ?? "").toLowerCase().endsWith(".pdf")
       );
 
       if (pdfAttachments.length === 0) {
-        console.log(`[email] No PDF attachments in "${subject}" — skipping`);
         await markProcessed({ messageId, subject, sender: from, status: "no_pdf" });
         continue;
       }
 
-      // Process each PDF attachment
       for (const attachment of pdfAttachments) {
         const pdfBuffer: Buffer = attachment.content;
-        console.log(`[email] Parsing PDF: ${attachment.filename} (${pdfBuffer.length} bytes)`);
-
         try {
           const invoiceData = await parsePdfInvoice(pdfBuffer);
-
-          // Save invoice
           const invoice = await storage.createInvoice({
             invoiceNumber: invoiceData.invoiceNumber,
             vendor: invoiceData.vendor,
             invoiceDate: invoiceData.invoiceDate,
             notes: invoiceData.notes ?? `Auto-imported from email: ${subject}`,
-          }, null); // null = no restaurant scope for email-imported invoices (admin can assign later)
+          }, restaurantId);
 
-          // Save line items
           for (const item of invoiceData.items) {
             await storage.createLineItem({
               invoiceId: invoice.id,
@@ -178,30 +150,56 @@ export async function pollInvoiceEmails() {
             });
           }
 
-          console.log(`[email] ✓ Imported invoice ${invoiceData.invoiceNumber} (${invoiceData.items.length} items)`);
+          console.log(`[email] ✓ ${label}: Imported invoice ${invoiceData.invoiceNumber} (${invoiceData.items.length} items)`);
           await markProcessed({ messageId, subject, sender: from, status: "processed", invoiceId: invoice.id });
           imported++;
         } catch (parseErr: any) {
-          console.error(`[email] Failed to parse PDF ${attachment.filename}:`, parseErr.message);
-          await markProcessed({
-            messageId,
-            subject,
-            sender: from,
-            status: "error",
-            errorMessage: parseErr.message,
-          });
+          console.error(`[email] Failed to parse PDF:`, parseErr.message);
+          await markProcessed({ messageId, subject, sender: from, status: "error", errorMessage: parseErr.message });
         }
       }
     }
 
-    console.log(`[email] Poll complete — ${imported} imported, ${skipped} already processed, ${messages.length - imported - skipped} skipped (no PDF)`);
+    console.log(`[email] ${label}: ${imported} imported, ${skipped} already processed`);
   } catch (err: any) {
-    console.error("[email] Poll error:", err.message);
+    console.error(`[email] Poll error for ${label}:`, err.message);
   } finally {
-    if (connection) {
-      try { connection.end(); } catch {}
-    }
+    if (connection) { try { connection.end(); } catch {} }
   }
+}
+
+// ── Main poll function — polls all inboxes ─────────────────────
+
+export async function pollInvoiceEmails() {
+  const inboxes: { user: string; pass: string; restaurantId: number | null; label: string }[] = [];
+
+  // Global inbox from env vars (admin-level, no restaurant)
+  const globalUser = process.env.GMAIL_USER;
+  const globalPass = process.env.GMAIL_APP_PASSWORD;
+  if (globalUser && globalPass) {
+    inboxes.push({ user: globalUser, pass: globalPass, restaurantId: null, label: "Global" });
+  }
+
+  // Per-restaurant inboxes from database
+  try {
+    const restaurants = await storage.getRestaurants();
+    for (const r of restaurants) {
+      if (r.active && r.gmailUser && r.gmailAppPassword) {
+        inboxes.push({ user: r.gmailUser, pass: r.gmailAppPassword, restaurantId: r.id, label: r.name });
+      }
+    }
+  } catch (e) {
+    console.error("[email] Could not load restaurant inboxes:", e);
+  }
+
+  if (inboxes.length === 0) {
+    console.log("[email] No inboxes configured — skipping poll");
+    return;
+  }
+
+  console.log(`[email] Polling ${inboxes.length} inbox(es)...`);
+  // Poll all inboxes in parallel
+  await Promise.allSettled(inboxes.map((inbox) => pollInbox(inbox.user, inbox.pass, inbox.restaurantId, inbox.label)));
 }
 
 // ── Scheduler ────────────────────────────────────────────────

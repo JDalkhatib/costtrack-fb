@@ -35,6 +35,8 @@ export interface Restaurant {
   name: string;
   active: boolean;
   createdAt: string;
+  gmailUser?: string | null;
+  gmailAppPassword?: string | null;
 }
 
 // ── Mappers ────────────────────────────────────────────────────
@@ -287,7 +289,7 @@ class SupabaseStorage implements IStorage {
   async getRestaurants(): Promise<Restaurant[]> {
     const { data, error } = await supabase
       .from("restaurants")
-      .select("id, name, active, created_at")
+      .select("id, name, active, created_at, gmail_user, gmail_app_password")
       .order("name");
     if (error) throw new Error(error.message);
     return (data ?? []).map((r: any) => ({
@@ -295,6 +297,8 @@ class SupabaseStorage implements IStorage {
       name: r.name,
       active: r.active,
       createdAt: r.created_at,
+      gmailUser: r.gmail_user ?? null,
+      gmailAppPassword: r.gmail_app_password ?? null,
     }));
   }
 
@@ -308,11 +312,13 @@ class SupabaseStorage implements IStorage {
     return { id: data.id, name: data.name, active: data.active, createdAt: data.created_at };
   }
 
-  async updateRestaurant(id: number, update: { name?: string; password?: string; active?: boolean }): Promise<Restaurant | undefined> {
+  async updateRestaurant(id: number, update: { name?: string; password?: string; active?: boolean; gmailUser?: string | null; gmailAppPassword?: string | null }): Promise<Restaurant | undefined> {
     const row: Record<string, unknown> = {};
     if (update.name !== undefined) row.name = update.name;
     if (update.password !== undefined) row.password_hash = update.password;
     if (update.active !== undefined) row.active = update.active;
+    if (update.gmailUser !== undefined) row.gmail_user = update.gmailUser;
+    if (update.gmailAppPassword !== undefined) row.gmail_app_password = update.gmailAppPassword;
 
     const { data, error } = await supabase
       .from("restaurants")
@@ -321,7 +327,10 @@ class SupabaseStorage implements IStorage {
       .select()
       .single();
     if (error) return undefined;
-    return { id: data.id, name: data.name, active: data.active, createdAt: data.created_at };
+    return {
+      id: data.id, name: data.name, active: data.active, createdAt: data.created_at,
+      gmailUser: data.gmail_user ?? null, gmailAppPassword: data.gmail_app_password ?? null,
+    };
   }
 
   async deleteRestaurant(id: number): Promise<void> {

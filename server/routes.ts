@@ -170,8 +170,8 @@ export function registerRoutes(httpServer: Server, app: Express) {
     try {
       if (!req.auth?.isAdmin) return res.status(403).json({ error: "Admin only" });
       const id = parseInt(req.params.id);
-      const { name, password, active } = req.body;
-      const updated = await storage.updateRestaurant(id, { name, password, active });
+      const { name, password, active, gmailUser, gmailAppPassword } = req.body;
+      const updated = await storage.updateRestaurant(id, { name, password, active, gmailUser, gmailAppPassword });
       if (!updated) return res.status(404).json({ error: "Restaurant not found" });
       res.json(updated);
     } catch (err: any) {
