@@ -161,7 +161,7 @@ export async function pollInvoiceEmails() {
             vendor: invoiceData.vendor,
             invoiceDate: invoiceData.invoiceDate,
             notes: invoiceData.notes ?? `Auto-imported from email: ${subject}`,
-          });
+          }, null); // null = no restaurant scope for email-imported invoices (admin can assign later)
 
           // Save line items
           for (const item of invoiceData.items) {

@@ -1,15 +1,23 @@
 import { Link, useLocation } from "wouter";
 import { useTheme } from "@/components/ThemeProvider";
-import { Sun, Moon, FileText, Tag, PlusCircle } from "lucide-react";
+import { Sun, Moon, FileText, Tag, PlusCircle, LogOut, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export function Layout({ children }: { children: React.ReactNode }) {
+interface LayoutProps {
+  children: React.ReactNode;
+  restaurantName?: string | null;
+  isAdmin?: boolean;
+  onLogout?: () => void;
+}
+
+export function Layout({ children, restaurantName, isAdmin, onLogout }: LayoutProps) {
   const { theme, toggleTheme } = useTheme();
   const [location] = useLocation();
 
   const navLinks = [
     { href: "/", label: "Invoices", icon: FileText },
     { href: "/categories", label: "By Category", icon: Tag },
+    ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: ShieldCheck }] : []),
   ];
 
   return (
@@ -17,7 +25,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur sticky top-0 z-50">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-          {/* Logo */}
+
+          {/* Logo + restaurant name */}
           <Link href="/" className="flex items-center gap-2.5 shrink-0">
             <img
               src="/ej-logo.jpg"
@@ -26,7 +35,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
               height="32"
               className="rounded-full object-cover ring-2 ring-primary/20"
             />
-            <span className="font-semibold text-sm tracking-tight">CostTrack</span>
+            <div className="flex flex-col leading-tight">
+              <span className="font-semibold text-sm tracking-tight">CostTrack</span>
+              {restaurantName && (
+                <span className="text-xs text-muted-foreground leading-tight">{restaurantName}</span>
+              )}
+            </div>
           </Link>
 
           {/* Nav */}
@@ -37,7 +51,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
                   variant={location === href ? "secondary" : "ghost"}
                   size="sm"
                   className="gap-1.5"
-                  data-testid={`nav-${label.toLowerCase().replace(/\s+/g, "-")}`}
                 >
                   <Icon size={14} />
                   <span className="hidden sm:inline">{label}</span>
@@ -49,7 +62,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           {/* Right actions */}
           <div className="flex items-center gap-2 shrink-0">
             <Link href="/invoices/new">
-              <Button size="sm" className="gap-1.5" data-testid="button-new-invoice">
+              <Button size="sm" className="gap-1.5">
                 <PlusCircle size={14} />
                 <span className="hidden sm:inline">New Invoice</span>
               </Button>
@@ -59,11 +72,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
               size="icon"
               onClick={toggleTheme}
               aria-label="Toggle theme"
-              data-testid="button-theme-toggle"
               className="h-8 w-8"
             >
               {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
             </Button>
+            {onLogout && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onLogout}
+                aria-label="Sign out"
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                title="Sign out"
+              >
+                <LogOut size={15} />
+              </Button>
+            )}
           </div>
         </div>
       </header>

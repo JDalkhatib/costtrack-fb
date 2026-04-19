@@ -6,7 +6,7 @@ import type {
   InsertLineItem,
 } from "@shared/schema";
 
-// ── Row types from Supabase (snake_case) ─────────────────
+// ── Row types from Supabase (snake_case) ──────────────────────
 interface InvoiceRow {
   id: number;
   invoice_number: string;
@@ -14,6 +14,7 @@ interface InvoiceRow {
   invoice_date: string;
   notes: string | null;
   created_at: string;
+  restaurant_id: number | null;
 }
 
 interface LineItemRow {
@@ -29,7 +30,14 @@ interface LineItemRow {
   notes: string | null;
 }
 
-// ── Mappers: DB row → app type ────────────────────────────
+export interface Restaurant {
+  id: number;
+  name: string;
+  active: boolean;
+  createdAt: string;
+}
+
+// ── Mappers ────────────────────────────────────────────────────
 function mapInvoice(r: InvoiceRow): Invoice {
   return {
     id: r.id,
@@ -56,7 +64,7 @@ function mapLineItem(r: LineItemRow): LineItem {
   };
 }
 
-// ── Price history type ───────────────────────────────────
+// ── Price history type ─────────────────────────────────────────
 export interface PriceHistoryEntry {
   invoiceId: number;
   invoiceNumber: string;
@@ -69,46 +77,53 @@ export interface PriceHistoryEntry {
   packSize: number | null;
 }
 
-// ── Storage interface ─────────────────────────────────────
+// ── Storage interface ──────────────────────────────────────────
+// restaurantId: null = admin (no filter), number = scoped to that restaurant
 export interface IStorage {
-  getInvoices(): Promise<Invoice[]>;
-  getInvoice(id: number): Promise<Invoice | undefined>;
-  createInvoice(invoice: InsertInvoice): Promise<Invoice>;
-  updateInvoice(id: number, invoice: Partial<InsertInvoice>): Promise<Invoice | undefined>;
-  deleteInvoice(id: number): Promise<void>;
+  getInvoices(restaurantId: number | null): Promise<Invoice[]>;
+  getInvoice(id: number, restaurantId: number | null): Promise<Invoice | undefined>;
+  createInvoice(invoice: InsertInvoice, restaurantId: number | null): Promise<Invoice>;
+  updateInvoice(id: number, invoice: Partial<InsertInvoice>, restaurantId: number | null): Promise<Invoice | undefined>;
+  deleteInvoice(id: number, restaurantId: number | null): Promise<void>;
 
   getLineItems(invoiceId: number): Promise<LineItem[]>;
-  getAllLineItems(): Promise<LineItem[]>;
+  getAllLineItems(restaurantId: number | null): Promise<LineItem[]>;
   getLineItem(id: number): Promise<LineItem | undefined>;
   createLineItem(item: InsertLineItem): Promise<LineItem>;
   updateLineItem(id: number, item: Partial<InsertLineItem>): Promise<LineItem | undefined>;
   deleteLineItem(id: number): Promise<void>;
 
-  getPriceHistory(itemName: string): Promise<PriceHistoryEntry[]>;
+  getPriceHistory(itemName: string, restaurantId: number | null): Promise<PriceHistoryEntry[]>;
+
+  // Restaurant management (admin only)
+  getRestaurants(): Promise<Restaurant[]>;
+  createRestaurant(name: string, password: string): Promise<Restaurant>;
+  updateRestaurant(id: number, data: { name?: string; password?: string; active?: boolean }): Promise<Restaurant | undefined>;
+  deleteRestaurant(id: number): Promise<void>;
 }
 
-// ── Supabase implementation ───────────────────────────────
+// ── Supabase implementation ────────────────────────────────────
 class SupabaseStorage implements IStorage {
-  async getInvoices(): Promise<Invoice[]> {
-    const { data, error } = await supabase
-      .from("invoices")
-      .select("*")
-      .order("id", { ascending: false });
+
+  // ── Invoices ────────────────────────────────────────────────
+
+  async getInvoices(restaurantId: number | null): Promise<Invoice[]> {
+    let q = supabase.from("invoices").select("*").order("id", { ascending: false });
+    if (restaurantId !== null) q = q.eq("restaurant_id", restaurantId);
+    const { data, error } = await q;
     if (error) throw new Error(error.message);
     return (data as InvoiceRow[]).map(mapInvoice);
   }
 
-  async getInvoice(id: number): Promise<Invoice | undefined> {
-    const { data, error } = await supabase
-      .from("invoices")
-      .select("*")
-      .eq("id", id)
-      .single();
+  async getInvoice(id: number, restaurantId: number | null): Promise<Invoice | undefined> {
+    let q = supabase.from("invoices").select("*").eq("id", id);
+    if (restaurantId !== null) q = q.eq("restaurant_id", restaurantId);
+    const { data, error } = await q.single();
     if (error) return undefined;
     return mapInvoice(data as InvoiceRow);
   }
 
-  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+  async createInvoice(invoice: InsertInvoice, restaurantId: number | null): Promise<Invoice> {
     const { data, error } = await supabase
       .from("invoices")
       .insert({
@@ -117,6 +132,7 @@ class SupabaseStorage implements IStorage {
         invoice_date: invoice.invoiceDate,
         notes: invoice.notes ?? null,
         created_at: new Date().toISOString(),
+        restaurant_id: restaurantId,
       })
       .select()
       .single();
@@ -124,27 +140,27 @@ class SupabaseStorage implements IStorage {
     return mapInvoice(data as InvoiceRow);
   }
 
-  async updateInvoice(id: number, data: Partial<InsertInvoice>): Promise<Invoice | undefined> {
+  async updateInvoice(id: number, data: Partial<InsertInvoice>, restaurantId: number | null): Promise<Invoice | undefined> {
     const update: Record<string, unknown> = {};
     if (data.invoiceNumber !== undefined) update.invoice_number = data.invoiceNumber;
     if (data.vendor !== undefined) update.vendor = data.vendor;
     if (data.invoiceDate !== undefined) update.invoice_date = data.invoiceDate;
     if (data.notes !== undefined) update.notes = data.notes;
 
-    const { data: row, error } = await supabase
-      .from("invoices")
-      .update(update)
-      .eq("id", id)
-      .select()
-      .single();
+    let q = supabase.from("invoices").update(update).eq("id", id);
+    if (restaurantId !== null) q = q.eq("restaurant_id", restaurantId);
+    const { data: row, error } = await q.select().single();
     if (error) return undefined;
     return mapInvoice(row as InvoiceRow);
   }
 
-  async deleteInvoice(id: number): Promise<void> {
-    // line_items cascade deletes via FK
-    await supabase.from("invoices").delete().eq("id", id);
+  async deleteInvoice(id: number, restaurantId: number | null): Promise<void> {
+    let q = supabase.from("invoices").delete().eq("id", id);
+    if (restaurantId !== null) q = q.eq("restaurant_id", restaurantId);
+    await q;
   }
+
+  // ── Line Items ───────────────────────────────────────────────
 
   async getLineItems(invoiceId: number): Promise<LineItem[]> {
     const { data, error } = await supabase
@@ -155,7 +171,16 @@ class SupabaseStorage implements IStorage {
     return (data as LineItemRow[]).map(mapLineItem);
   }
 
-  async getAllLineItems(): Promise<LineItem[]> {
+  async getAllLineItems(restaurantId: number | null): Promise<LineItem[]> {
+    if (restaurantId !== null) {
+      // Join through invoices to filter by restaurant
+      const { data, error } = await supabase
+        .from("line_items")
+        .select("*, invoices!inner(restaurant_id)")
+        .eq("invoices.restaurant_id", restaurantId);
+      if (error) throw new Error(error.message);
+      return (data as any[]).map(mapLineItem);
+    }
     const { data, error } = await supabase.from("line_items").select("*");
     if (error) throw new Error(error.message);
     return (data as LineItemRow[]).map(mapLineItem);
@@ -216,29 +241,24 @@ class SupabaseStorage implements IStorage {
     await supabase.from("line_items").delete().eq("id", id);
   }
 
-  async getPriceHistory(itemName: string): Promise<PriceHistoryEntry[]> {
-    // Fuzzy match: find all line items whose name contains any word from the query
-    // Use ilike for case-insensitive partial match
-    const { data, error } = await supabase
+  // ── Price History ────────────────────────────────────────────
+
+  async getPriceHistory(itemName: string, restaurantId: number | null): Promise<PriceHistoryEntry[]> {
+    let q = supabase
       .from("line_items")
       .select(`
-        id,
-        item_name,
-        total_cost,
-        quantity,
-        pack_size,
-        pack_unit,
-        invoices!inner (
-          id,
-          invoice_number,
-          vendor,
-          invoice_date
-        )
+        id, item_name, total_cost, quantity, pack_size, pack_unit,
+        invoices!inner ( id, invoice_number, vendor, invoice_date, restaurant_id )
       `)
       .ilike("item_name", `%${itemName.trim()}%`)
       .order("id", { ascending: false })
       .limit(20);
 
+    if (restaurantId !== null) {
+      q = q.eq("invoices.restaurant_id", restaurantId);
+    }
+
+    const { data, error } = await q;
     if (error) throw new Error(error.message);
 
     return ((data as any[]) ?? []).map((row) => {
@@ -260,6 +280,52 @@ class SupabaseStorage implements IStorage {
         packSize,
       };
     });
+  }
+
+  // ── Restaurants ──────────────────────────────────────────────
+
+  async getRestaurants(): Promise<Restaurant[]> {
+    const { data, error } = await supabase
+      .from("restaurants")
+      .select("id, name, active, created_at")
+      .order("name");
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      active: r.active,
+      createdAt: r.created_at,
+    }));
+  }
+
+  async createRestaurant(name: string, password: string): Promise<Restaurant> {
+    const { data, error } = await supabase
+      .from("restaurants")
+      .insert({ name, password_hash: password, active: true })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return { id: data.id, name: data.name, active: data.active, createdAt: data.created_at };
+  }
+
+  async updateRestaurant(id: number, update: { name?: string; password?: string; active?: boolean }): Promise<Restaurant | undefined> {
+    const row: Record<string, unknown> = {};
+    if (update.name !== undefined) row.name = update.name;
+    if (update.password !== undefined) row.password_hash = update.password;
+    if (update.active !== undefined) row.active = update.active;
+
+    const { data, error } = await supabase
+      .from("restaurants")
+      .update(row)
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) return undefined;
+    return { id: data.id, name: data.name, active: data.active, createdAt: data.created_at };
+  }
+
+  async deleteRestaurant(id: number): Promise<void> {
+    await supabase.from("restaurants").delete().eq("id", id);
   }
 }
 

@@ -24,27 +24,12 @@ app.use(
 
 app.use(express.urlencoded({ extended: false }));
 
-// ── Token-based Auth (works through proxy — no cookies needed) ──
-const APP_PASSWORD = process.env.APP_PASSWORD || "Magazine315!";
-const AUTH_TOKEN = process.env.AUTH_TOKEN || "ct-" + Buffer.from(APP_PASSWORD).toString("base64");
+// ── Multi-restaurant token-based auth ──
+import { authMiddleware, handleLogin, getRestaurants } from "./auth";
 
-// Login endpoint — public, returns a token
-app.post("/api/auth/login", (req: Request, res: Response) => {
-  const { password } = req.body;
-  if (password === APP_PASSWORD) {
-    res.json({ ok: true, token: AUTH_TOKEN });
-  } else {
-    res.status(401).json({ error: "Incorrect password" });
-  }
-});
-
-// Auth guard — all /api/* routes except login must include token header
-app.use("/api", (req: Request, res: Response, next: NextFunction) => {
-  if (req.path === "/auth/login") return next();
-  const token = req.headers["x-auth-token"] as string | undefined;
-  if (token === AUTH_TOKEN) return next();
-  res.status(401).json({ error: "Unauthorized" });
-});
+app.post("/api/auth/login", handleLogin);
+app.get("/api/auth/restaurants", getRestaurants);
+app.use("/api", authMiddleware);
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
