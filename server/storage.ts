@@ -446,19 +446,28 @@ class SupabaseStorage implements IStorage {
   }
 
   async searchIngredients(query: string, restaurantId: number | null) {
-    // Find the most recent cost-per-unit for each unique item name matching the query
-    let q = supabase
+    // Search line_items matching the query. Include:
+    // - invoices belonging to this restaurant
+    // - invoices with no restaurant (legacy/shared invoices uploaded before multi-restaurant)
+    // This ensures results always appear regardless of how invoices were imported.
+    const { data, error } = await supabase
       .from("line_items")
-      .select("id, item_name, unit, total_cost, quantity, pack_size, pack_unit, invoices!inner(restaurant_id, invoice_date)")
+      .select("id, item_name, unit, total_cost, quantity, pack_size, pack_unit, invoices!inner(id, restaurant_id, invoice_date)")
       .ilike("item_name", `%${query}%`)
       .order("id", { ascending: false })
-      .limit(100);
-    if (restaurantId !== null) q = q.eq("invoices.restaurant_id", restaurantId);
-    const { data, error } = await q;
+      .limit(200);
     if (error) throw new Error(error.message);
+
+    // Filter client-side: keep rows where invoice restaurant_id matches OR is null
+    const rows = ((data ?? []) as any[]).filter((row) => {
+      const invRestaurantId = row.invoices?.restaurant_id ?? null;
+      if (restaurantId === null) return true; // admin sees all
+      return invRestaurantId === null || invRestaurantId === restaurantId;
+    });
+
     // Deduplicate by item_name, keep most recent
     const seen = new Map<string, any>();
-    for (const row of (data ?? []) as any[]) {
+    for (const row of rows) {
       const key = row.item_name.toLowerCase().trim();
       if (!seen.has(key)) seen.set(key, row);
     }
