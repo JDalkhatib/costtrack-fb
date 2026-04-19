@@ -17,6 +17,10 @@ export function setAuth(
   _isAdmin = isAdmin;
   _restaurantId = restaurantId;
   _restaurantName = restaurantName;
+  // Persist for use in non-React contexts (recipe form ingredient search)
+  localStorage.setItem("auth_token", token);
+  if (restaurantId !== null) localStorage.setItem("restaurant_id", String(restaurantId));
+  else localStorage.removeItem("restaurant_id");
 }
 
 export function clearAuth() {
@@ -24,6 +28,8 @@ export function clearAuth() {
   _isAdmin = false;
   _restaurantId = null;
   _restaurantName = null;
+  localStorage.removeItem("auth_token");
+  localStorage.removeItem("restaurant_id");
 }
 
 export function getIsAdmin(): boolean { return _isAdmin; }

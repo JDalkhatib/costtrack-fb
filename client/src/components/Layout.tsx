@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useTheme } from "@/components/ThemeProvider";
-import { Sun, Moon, FileText, Tag, PlusCircle, LogOut, ShieldCheck } from "lucide-react";
+import { Sun, Moon, FileText, Tag, PlusCircle, LogOut, ShieldCheck, ChefHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CostTrackLogo } from "@/components/CostTrackLogo";
 
@@ -18,6 +18,7 @@ export function Layout({ children, restaurantName, isAdmin, onLogout }: LayoutPr
   const navLinks = [
     { href: "/", label: "Invoices", icon: FileText },
     { href: "/categories", label: "By Category", icon: Tag },
+    { href: "/recipes", label: "Recipes", icon: ChefHat },
     ...(isAdmin ? [{ href: "/admin", label: "Admin", icon: ShieldCheck }] : []),
   ];
 

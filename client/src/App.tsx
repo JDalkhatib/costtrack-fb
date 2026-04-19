@@ -13,6 +13,9 @@ import NewInvoicePage from "@/pages/NewInvoicePage";
 import CategoriesPage from "@/pages/CategoriesPage";
 import AdminPage from "@/pages/AdminPage";
 import LoginPage from "@/pages/LoginPage";
+import RecipesPage from "@/pages/RecipesPage";
+import RecipeFormPage from "@/pages/RecipeFormPage";
+import RecipeDetailPage from "@/pages/RecipeDetailPage";
 import NotFound from "@/pages/not-found";
 
 interface AuthState {
@@ -60,6 +63,10 @@ export default function App() {
               <Route path="/invoices/new" component={NewInvoicePage} />
               <Route path="/invoices/:id" component={InvoiceDetailPage} />
               <Route path="/categories" component={CategoriesPage} />
+              <Route path="/recipes" component={RecipesPage} />
+              <Route path="/recipes/new" component={RecipeFormPage} />
+              <Route path="/recipes/:id/edit" component={RecipeFormPage} />
+              <Route path="/recipes/:id" component={RecipeDetailPage} />
               {auth.isAdmin && <Route path="/admin" component={AdminPage} />}
               <Route component={NotFound} />
             </Switch>

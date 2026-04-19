@@ -1,6 +1,8 @@
 import type { Express, Request } from "express";
 import type { Server } from "http";
 import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { storage } from "./storage";
 import { insertInvoiceSchema, insertLineItemSchema } from "@shared/schema";
 import { parsePdfInvoice } from "./pdfParser";
@@ -11,6 +13,23 @@ const upload = multer({
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     cb(null, file.mimetype === "application/pdf");
+  },
+});
+
+// Photo upload — accepts images, stores to disk under /uploads
+const UPLOADS_DIR = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+const photoUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname) || ".jpg";
+      cb(null, `photo-${Date.now()}${ext}`);
+    },
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    cb(null, file.mimetype.startsWith("image/"));
   },
 });
 
@@ -217,6 +236,102 @@ export function registerRoutes(httpServer: Server, app: Express) {
       res.json(history);
     } catch (err: any) {
       res.status(500).json({ error: err?.message });
+    }
+  });
+
+  // ── Recipes ────────────────────────────────────────────────
+  app.get("/api/recipes", async (req, res) => {
+    try {
+      const recipes = await storage.getRecipes(rid(req));
+      res.json(recipes);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  app.get("/api/recipes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const recipe = await storage.getRecipe(id, rid(req));
+      if (!recipe) return res.status(404).json({ error: "Recipe not found" });
+      res.json(recipe);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  app.post("/api/recipes", async (req, res) => {
+    try {
+      const restaurantId = rid(req);
+      if (!restaurantId) return res.status(400).json({ error: "Restaurant context required" });
+      const { ingredients, ...recipeData } = req.body;
+      const recipe = await storage.createRecipe(recipeData, restaurantId);
+      if (ingredients && Array.isArray(ingredients)) {
+        const ings = await storage.upsertRecipeIngredients(recipe.id, ingredients);
+        return res.status(201).json({ ...recipe, ingredients: ings });
+      }
+      res.status(201).json(recipe);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  app.patch("/api/recipes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { ingredients, ...recipeData } = req.body;
+      const updated = await storage.updateRecipe(id, recipeData, rid(req));
+      if (!updated) return res.status(404).json({ error: "Recipe not found" });
+      if (ingredients && Array.isArray(ingredients)) {
+        const ings = await storage.upsertRecipeIngredients(id, ingredients);
+        return res.json({ ...updated, ingredients: ings });
+      }
+      res.json(updated);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  app.delete("/api/recipes/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteRecipe(id, rid(req));
+      res.status(204).send();
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  // Ingredient search — pulls from invoice line_items with live cost
+  app.get("/api/recipes/ingredients/search", async (req, res) => {
+    try {
+      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+      if (!q) return res.json([]);
+      const results = await storage.searchIngredients(q, rid(req));
+      res.json(results);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  // Photo upload for recipe dish images
+  app.post("/api/recipes/photo", photoUpload.single("photo"), (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No image provided" });
+      const url = `/uploads/${req.file.filename}`;
+      res.json({ url });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  // Serve uploaded photos
+  app.use("/uploads", (req, res, next) => {
+    const filePath = path.join(UPLOADS_DIR, path.basename(req.path));
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      next();
     }
   });
 

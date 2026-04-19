@@ -102,6 +102,15 @@ export interface IStorage {
   createRestaurant(name: string, password: string): Promise<Restaurant>;
   updateRestaurant(id: number, data: { name?: string; password?: string; active?: boolean }): Promise<Restaurant | undefined>;
   deleteRestaurant(id: number): Promise<void>;
+
+  // Recipes
+  getRecipes(restaurantId: number | null): Promise<Recipe[]>;
+  getRecipe(id: number, restaurantId: number | null): Promise<Recipe | undefined>;
+  createRecipe(recipe: InsertRecipe, restaurantId: number): Promise<Recipe>;
+  updateRecipe(id: number, recipe: Partial<InsertRecipe>, restaurantId: number | null): Promise<Recipe | undefined>;
+  deleteRecipe(id: number, restaurantId: number | null): Promise<void>;
+  upsertRecipeIngredients(recipeId: number, ingredients: InsertRecipeIngredient[]): Promise<RecipeIngredient[]>;
+  searchIngredients(query: string, restaurantId: number | null): Promise<{ id: number; name: string; unit: string; unitCost: number; packSize: number | null; packUnit: string | null }[]>;
 }
 
 // ── Supabase implementation ────────────────────────────────────
@@ -336,6 +345,238 @@ class SupabaseStorage implements IStorage {
   async deleteRestaurant(id: number): Promise<void> {
     await supabase.from("restaurants").delete().eq("id", id);
   }
+
+  // ── Recipes ──────────────────────────────────────────────────
+
+  async getRecipes(restaurantId: number | null): Promise<Recipe[]> {
+    let q = supabase.from("recipes").select("*").order("name");
+    if (restaurantId !== null) q = q.eq("restaurant_id", restaurantId);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    return (data ?? []).map((r: any) => mapRecipe(r));
+  }
+
+  async getRecipe(id: number, restaurantId: number | null): Promise<Recipe | undefined> {
+    let q = supabase.from("recipes").select("*").eq("id", id);
+    if (restaurantId !== null) q = q.eq("restaurant_id", restaurantId);
+    const { data, error } = await q.single();
+    if (error) return undefined;
+    const { data: ingData } = await supabase
+      .from("recipe_ingredients")
+      .select("*")
+      .eq("recipe_id", id)
+      .order("sort_order");
+    const ingredients = (ingData ?? []).map(mapRecipeIngredient);
+    return mapRecipe(data, ingredients);
+  }
+
+  async createRecipe(recipe: InsertRecipe, restaurantId: number): Promise<Recipe> {
+    const { data, error } = await supabase
+      .from("recipes")
+      .insert({
+        restaurant_id: restaurantId,
+        name: recipe.name,
+        classification: recipe.classification ?? null,
+        standard_portion: recipe.standardPortion ?? null,
+        standard_yield: recipe.standardYield ?? 1,
+        method_of_preparation: recipe.methodOfPreparation ?? null,
+        plating_instructions: recipe.platingInstructions ?? null,
+        photo_url: recipe.photoUrl ?? null,
+        notes: recipe.notes ?? null,
+        desired_cost_pct: recipe.desiredCostPct ?? 0.25,
+        actual_menu_price: recipe.actualMenuPrice ?? 0,
+        q_factor: recipe.qFactor ?? 0.03,
+        allergens: recipe.allergens ?? [],
+        updated_at: new Date().toISOString(),
+      })
+      .select()
+      .single();
+    if (error) throw new Error(error.message);
+    return mapRecipe(data, []);
+  }
+
+  async updateRecipe(id: number, recipe: Partial<InsertRecipe>, restaurantId: number | null): Promise<Recipe | undefined> {
+    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    if (recipe.name !== undefined) row.name = recipe.name;
+    if (recipe.classification !== undefined) row.classification = recipe.classification;
+    if (recipe.standardPortion !== undefined) row.standard_portion = recipe.standardPortion;
+    if (recipe.standardYield !== undefined) row.standard_yield = recipe.standardYield;
+    if (recipe.methodOfPreparation !== undefined) row.method_of_preparation = recipe.methodOfPreparation;
+    if (recipe.platingInstructions !== undefined) row.plating_instructions = recipe.platingInstructions;
+    if (recipe.photoUrl !== undefined) row.photo_url = recipe.photoUrl;
+    if (recipe.notes !== undefined) row.notes = recipe.notes;
+    if (recipe.desiredCostPct !== undefined) row.desired_cost_pct = recipe.desiredCostPct;
+    if (recipe.actualMenuPrice !== undefined) row.actual_menu_price = recipe.actualMenuPrice;
+    if (recipe.qFactor !== undefined) row.q_factor = recipe.qFactor;
+    if (recipe.allergens !== undefined) row.allergens = recipe.allergens;
+    let q = supabase.from("recipes").update(row).eq("id", id);
+    if (restaurantId !== null) q = q.eq("restaurant_id", restaurantId);
+    const { data, error } = await q.select().single();
+    if (error) return undefined;
+    return mapRecipe(data);
+  }
+
+  async deleteRecipe(id: number, restaurantId: number | null): Promise<void> {
+    let q = supabase.from("recipes").delete().eq("id", id);
+    if (restaurantId !== null) q = q.eq("restaurant_id", restaurantId);
+    await q;
+  }
+
+  async upsertRecipeIngredients(recipeId: number, ingredients: InsertRecipeIngredient[]): Promise<RecipeIngredient[]> {
+    // Delete existing and re-insert (clean replace)
+    await supabase.from("recipe_ingredients").delete().eq("recipe_id", recipeId);
+    if (ingredients.length === 0) return [];
+    const rows = ingredients.map((ing, i) => ({
+      recipe_id: recipeId,
+      sort_order: ing.sortOrder ?? i,
+      ingredient_name: ing.ingredientName,
+      item_number: ing.itemNumber ?? null,
+      recipe_quantity: ing.recipeQuantity ?? 0,
+      recipe_unit: ing.recipeUnit ?? '',
+      unit_cost: ing.unitCost ?? 0,
+      ingredient_cost: ing.ingredientCost ?? 0,
+      line_item_id: ing.lineItemId ?? null,
+    }));
+    const { data, error } = await supabase
+      .from("recipe_ingredients")
+      .insert(rows)
+      .select();
+    if (error) throw new Error(error.message);
+    return (data ?? []).map(mapRecipeIngredient);
+  }
+
+  async searchIngredients(query: string, restaurantId: number | null) {
+    // Find the most recent cost-per-unit for each unique item name matching the query
+    let q = supabase
+      .from("line_items")
+      .select("id, item_name, unit, total_cost, quantity, pack_size, pack_unit, invoices!inner(restaurant_id, invoice_date)")
+      .ilike("item_name", `%${query}%`)
+      .order("id", { ascending: false })
+      .limit(100);
+    if (restaurantId !== null) q = q.eq("invoices.restaurant_id", restaurantId);
+    const { data, error } = await q;
+    if (error) throw new Error(error.message);
+    // Deduplicate by item_name, keep most recent
+    const seen = new Map<string, any>();
+    for (const row of (data ?? []) as any[]) {
+      const key = row.item_name.toLowerCase().trim();
+      if (!seen.has(key)) seen.set(key, row);
+    }
+    return Array.from(seen.values()).slice(0, 20).map((row) => {
+      const qty = Number(row.quantity);
+      const totalCost = Number(row.total_cost);
+      const packSize = row.pack_size ? Number(row.pack_size) : null;
+      const totalUnits = packSize && packSize > 0 ? qty * packSize : qty;
+      const unitCost = totalUnits > 0 ? totalCost / totalUnits : 0;
+      return {
+        id: row.id,
+        name: row.item_name,
+        unit: row.pack_unit ?? row.unit ?? '',
+        unitCost,
+        packSize,
+        packUnit: row.pack_unit ?? null,
+      };
+    });
+  }
 }
 
 export const storage = new SupabaseStorage();
+
+// ─────────────────────────────────────────────────────────────
+// Recipe types
+// ─────────────────────────────────────────────────────────────
+export interface RecipeIngredient {
+  id: number;
+  recipeId: number;
+  sortOrder: number;
+  ingredientName: string;
+  itemNumber: string | null;
+  recipeQuantity: number;
+  recipeUnit: string;
+  unitCost: number;
+  ingredientCost: number;
+  lineItemId: number | null;
+}
+
+export interface Recipe {
+  id: number;
+  restaurantId: number;
+  name: string;
+  classification: string | null;
+  standardPortion: string | null;
+  standardYield: number;
+  methodOfPreparation: string | null;
+  platingInstructions: string | null;
+  photoUrl: string | null;
+  notes: string | null;
+  desiredCostPct: number;
+  actualMenuPrice: number;
+  qFactor: number;
+  allergens: string[];
+  createdAt: string;
+  updatedAt: string;
+  ingredients?: RecipeIngredient[];
+}
+
+export interface InsertRecipe {
+  name: string;
+  classification?: string | null;
+  standardPortion?: string | null;
+  standardYield?: number;
+  methodOfPreparation?: string | null;
+  platingInstructions?: string | null;
+  photoUrl?: string | null;
+  notes?: string | null;
+  desiredCostPct?: number;
+  actualMenuPrice?: number;
+  qFactor?: number;
+  allergens?: string[];
+}
+
+export interface InsertRecipeIngredient {
+  sortOrder?: number;
+  ingredientName: string;
+  itemNumber?: string | null;
+  recipeQuantity?: number;
+  recipeUnit?: string;
+  unitCost?: number;
+  ingredientCost?: number;
+  lineItemId?: number | null;
+}
+
+function mapRecipeIngredient(r: any): RecipeIngredient {
+  return {
+    id: r.id,
+    recipeId: r.recipe_id,
+    sortOrder: r.sort_order ?? 0,
+    ingredientName: r.ingredient_name,
+    itemNumber: r.item_number ?? null,
+    recipeQuantity: Number(r.recipe_quantity ?? 0),
+    recipeUnit: r.recipe_unit ?? '',
+    unitCost: Number(r.unit_cost ?? 0),
+    ingredientCost: Number(r.ingredient_cost ?? 0),
+    lineItemId: r.line_item_id ?? null,
+  };
+}
+
+function mapRecipe(r: any, ingredients?: RecipeIngredient[]): Recipe {
+  return {
+    id: r.id,
+    restaurantId: r.restaurant_id,
+    name: r.name,
+    classification: r.classification ?? null,
+    standardPortion: r.standard_portion ?? null,
+    standardYield: Number(r.standard_yield ?? 1),
+    methodOfPreparation: r.method_of_preparation ?? null,
+    platingInstructions: r.plating_instructions ?? null,
+    photoUrl: r.photo_url ?? null,
+    notes: r.notes ?? null,
+    desiredCostPct: Number(r.desired_cost_pct ?? 0.25),
+    actualMenuPrice: Number(r.actual_menu_price ?? 0),
+    qFactor: Number(r.q_factor ?? 0.03),
+    allergens: Array.isArray(r.allergens) ? r.allergens : [],
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+    ingredients,
+  };
+}
