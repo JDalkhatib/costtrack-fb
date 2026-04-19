@@ -249,6 +249,29 @@ export function registerRoutes(httpServer: Server, app: Express) {
     }
   });
 
+  // IMPORTANT: static sub-routes must come BEFORE /:id to avoid Express swallowing them
+  app.get("/api/recipes/ingredients/search", async (req, res) => {
+    try {
+      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+      if (!q) return res.json([]);
+      const results = await storage.searchIngredients(q, rid(req));
+      res.json(results);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
+  // Photo upload for recipe dish images
+  app.post("/api/recipes/photo", photoUpload.single("photo"), (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "No image provided" });
+      const url = `/uploads/${req.file.filename}`;
+      res.json({ url });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message });
+    }
+  });
+
   app.get("/api/recipes/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -297,29 +320,6 @@ export function registerRoutes(httpServer: Server, app: Express) {
       const id = parseInt(req.params.id);
       await storage.deleteRecipe(id, rid(req));
       res.status(204).send();
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message });
-    }
-  });
-
-  // Ingredient search — pulls from invoice line_items with live cost
-  app.get("/api/recipes/ingredients/search", async (req, res) => {
-    try {
-      const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
-      if (!q) return res.json([]);
-      const results = await storage.searchIngredients(q, rid(req));
-      res.json(results);
-    } catch (err: any) {
-      res.status(500).json({ error: err?.message });
-    }
-  });
-
-  // Photo upload for recipe dish images
-  app.post("/api/recipes/photo", photoUpload.single("photo"), (req, res) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: "No image provided" });
-      const url = `/uploads/${req.file.filename}`;
-      res.json({ url });
     } catch (err: any) {
       res.status(500).json({ error: err?.message });
     }
