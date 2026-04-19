@@ -72,14 +72,8 @@ export default function LoginPage({ onLogin }: Props) {
       <div className="w-full max-w-sm">
 
         {/* Logo */}
-        <div className="flex flex-col items-center gap-4 mb-8">
-          <CostTrackLogo size={80} />
-          <div className="text-center">
-            <span className="text-2xl font-bold tracking-tight block">
-              Cost<span style={{ color: "#F59E0B" }}>Track</span>
-            </span>
-            <span className="text-xs text-muted-foreground tracking-wide uppercase">Invoice Intelligence</span>
-          </div>
+        <div className="flex flex-col items-center gap-0 mb-8">
+          <CostTrackLogo size={96} showSubtitle={true} />
         </div>
 
         <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">

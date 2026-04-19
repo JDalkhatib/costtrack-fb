@@ -32,10 +32,12 @@ export function Layout({ children, restaurantName, isAdmin, onLogout }: LayoutPr
             <CostTrackLogo size={34} />
             <div className="flex flex-col leading-tight">
               <span className="font-semibold text-sm tracking-tight">
-                Cost<span style={{ color: "#F59E0B" }}>Track</span>
+                F<span style={{ color: "#D4AF37" }}>&amp;</span>B
               </span>
-              {restaurantName && (
+              {restaurantName ? (
                 <span className="text-xs text-muted-foreground leading-tight">{restaurantName}</span>
+              ) : (
+                <span className="text-xs text-muted-foreground leading-tight">CostTrack</span>
               )}
             </div>
           </Link>

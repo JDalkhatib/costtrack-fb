@@ -2,49 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-/* LIGHT MODE — EJ Brand: Burgundy + Teal + Cream */
+/* LIGHT MODE — F&B Brand: Deep Forest Green + Gold + Warm Parchment */
 :root {
   --button-outline: rgba(0, 0, 0, 0.1);
   --badge-outline: rgba(0, 0, 0, 0.05);
   --opaque-button-border-intensity: -8;
   --elevate-1: rgba(0, 0, 0, 0.03);
   --elevate-2: rgba(0, 0, 0, 0.08);
-  --background: 38 30% 95%;        /* warm cream #f5f0eb */
-  --foreground: 345 40% 14%;       /* deep burgundy-brown */
-  --border: 175 18% 78%;           /* soft teal border */
-  --card: 38 28% 97%;              /* slightly lighter cream */
-  --card-foreground: 345 40% 14%;
-  --card-border: 175 18% 85%;
-  --sidebar: 38 26% 94%;
-  --sidebar-foreground: 345 40% 14%;
-  --sidebar-border: 175 18% 80%;
-  --sidebar-primary: 347 72% 32%;  /* EJ burgundy #8B1A2E */
-  --sidebar-primary-foreground: 38 30% 97%;
-  --sidebar-accent: 175 28% 88%;   /* light teal */
-  --sidebar-accent-foreground: 345 40% 14%;
-  --sidebar-ring: 347 72% 32%;
-  --popover: 38 30% 96%;
-  --popover-foreground: 345 40% 14%;
-  --popover-border: 175 18% 84%;
-  --primary: 347 72% 32%;          /* EJ burgundy #8B1A2E */
-  --primary-foreground: 38 30% 97%;
-  --secondary: 175 28% 88%;        /* muted teal #c8dedd */
-  --secondary-foreground: 345 40% 14%;
-  --muted: 175 18% 92%;            /* very light teal */
-  --muted-foreground: 175 12% 42%;
-  --accent: 175 35% 84%;           /* teal accent */
-  --accent-foreground: 345 40% 14%;
+  --background: 42 28% 95%;        /* warm parchment #f9f5ee */
+  --foreground: 150 35% 10%;       /* deep forest green-black */
+  --border: 150 14% 76%;           /* soft sage border */
+  --card: 42 26% 97%;              /* slightly lighter parchment */
+  --card-foreground: 150 35% 10%;
+  --card-border: 150 14% 83%;
+  --sidebar: 42 24% 94%;
+  --sidebar-foreground: 150 35% 10%;
+  --sidebar-border: 150 14% 78%;
+  --sidebar-primary: 150 44% 22%;  /* forest green #1B4332 */
+  --sidebar-primary-foreground: 42 28% 95%;
+  --sidebar-accent: 150 20% 87%;   /* light sage */
+  --sidebar-accent-foreground: 150 35% 10%;
+  --sidebar-ring: 150 44% 22%;
+  --popover: 42 28% 96%;
+  --popover-foreground: 150 35% 10%;
+  --popover-border: 150 14% 82%;
+  --primary: 150 44% 22%;          /* forest green #1B4332 */
+  --primary-foreground: 42 28% 95%;
+  --secondary: 150 20% 87%;        /* light sage */
+  --secondary-foreground: 150 35% 10%;
+  --muted: 150 12% 91%;            /* very light sage */
+  --muted-foreground: 150 10% 44%;
+  --accent: 150 22% 84%;           /* sage accent */
+  --accent-foreground: 150 35% 10%;
   --destructive: 0 84% 42%;
   --destructive-foreground: 0 0% 98%;
-  --input: 175 14% 76%;
-  --ring: 347 72% 32%;
-  --chart-1: 347 72% 32%;          /* burgundy */
-  --chart-2: 175 35% 47%;          /* teal */
-  --chart-3: 347 55% 52%;          /* lighter burgundy */
+  --input: 150 12% 74%;
+  --ring: 150 44% 22%;
+  --chart-1: 150 44% 22%;          /* forest green */
+  --chart-2: 43 62% 52%;           /* gold */
+  --chart-3: 150 32% 38%;          /* lighter green */
   --chart-4: 43 74% 49%;           /* warm gold */
-  --chart-5: 175 50% 65%;          /* light teal */
+  --chart-5: 150 28% 58%;          /* light green */
   --font-sans: 'General Sans', 'Inter', sans-serif;
-  --font-serif: Georgia, serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: 0.5rem;
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0);
@@ -107,40 +107,40 @@
   --opaque-button-border-intensity: 9;
   --elevate-1: rgba(255, 255, 255, 0.04);
   --elevate-2: rgba(255, 255, 255, 0.09);
-  --background: 345 18% 9%;        /* deep dark burgundy */
-  --foreground: 38 20% 88%;        /* warm cream text */
-  --border: 175 12% 22%;
-  --card: 345 16% 12%;
-  --card-foreground: 38 20% 88%;
-  --card-border: 175 12% 18%;
-  --sidebar: 345 16% 11%;
-  --sidebar-foreground: 38 20% 88%;
-  --sidebar-border: 175 12% 17%;
-  --sidebar-primary: 347 60% 55%;  /* lighter burgundy for dark bg */
-  --sidebar-primary-foreground: 345 18% 9%;
-  --sidebar-accent: 175 18% 18%;
-  --sidebar-accent-foreground: 38 20% 88%;
-  --sidebar-ring: 347 60% 55%;
-  --popover: 345 16% 13%;
-  --popover-foreground: 38 20% 88%;
-  --popover-border: 175 12% 19%;
-  --primary: 347 60% 55%;          /* brighter burgundy on dark */
-  --primary-foreground: 345 18% 9%;
-  --secondary: 175 18% 18%;        /* dark teal */
-  --secondary-foreground: 38 20% 88%;
-  --muted: 175 12% 16%;
-  --muted-foreground: 175 10% 58%;
-  --accent: 175 20% 20%;
-  --accent-foreground: 38 20% 88%;
+  --background: 150 30% 7%;        /* very dark forest green */
+  --foreground: 42 22% 88%;        /* warm parchment text */
+  --border: 150 14% 20%;
+  --card: 150 26% 10%;
+  --card-foreground: 42 22% 88%;
+  --card-border: 150 14% 16%;
+  --sidebar: 150 24% 9%;
+  --sidebar-foreground: 42 22% 88%;
+  --sidebar-border: 150 14% 15%;
+  --sidebar-primary: 150 40% 48%;  /* lighter green for dark bg */
+  --sidebar-primary-foreground: 150 30% 7%;
+  --sidebar-accent: 150 16% 16%;
+  --sidebar-accent-foreground: 42 22% 88%;
+  --sidebar-ring: 150 40% 48%;
+  --popover: 150 26% 11%;
+  --popover-foreground: 42 22% 88%;
+  --popover-border: 150 14% 17%;
+  --primary: 150 40% 48%;          /* lighter green on dark */
+  --primary-foreground: 150 30% 7%;
+  --secondary: 150 16% 16%;        /* dark sage */
+  --secondary-foreground: 42 22% 88%;
+  --muted: 150 12% 14%;
+  --muted-foreground: 150 10% 56%;
+  --accent: 150 18% 18%;
+  --accent-foreground: 42 22% 88%;
   --destructive: 0 72% 55%;
   --destructive-foreground: 0 0% 98%;
-  --input: 175 10% 28%;
-  --ring: 347 60% 55%;
-  --chart-1: 347 60% 60%;          /* burgundy */
-  --chart-2: 175 40% 55%;          /* teal */
-  --chart-3: 347 45% 70%;          /* light burgundy */
+  --input: 150 10% 26%;
+  --ring: 150 40% 48%;
+  --chart-1: 150 40% 52%;          /* green */
+  --chart-2: 43 68% 58%;           /* gold */
+  --chart-3: 150 32% 64%;          /* light green */
   --chart-4: 43 74% 65%;           /* warm gold */
-  --chart-5: 175 50% 72%;          /* light teal */
+  --chart-5: 150 28% 70%;          /* light green */
   --shadow-2xs: 0px 2px 0px 0px hsl(0 0% 0% / 0);
   --shadow-xs: 0px 2px 0px 0px hsl(0 0% 0% / 0);
   --shadow-sm: 0px 2px 0px 0px hsl(0 0% 0% / 0), 0px 1px 2px -1px hsl(0 0% 0% / 0);
