@@ -32,6 +32,8 @@ export default function App() {
     setAuth(token, isAdmin, restaurantId, restaurantName);
     setAuthState({ token, isAdmin, restaurantId, restaurantName });
     queryClient.clear();
+    // Always reset to root so a stale hash (e.g. /#/admin) never lands on NotFound
+    window.location.hash = "/";
   }
 
   function handleLogout() {
