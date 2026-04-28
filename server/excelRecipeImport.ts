@@ -104,29 +104,52 @@ export function parseExcelCostCards(buffer: Buffer): ParsedCostCard[] {
     // ── Actual Menu Price (row 43, col 7) ────────────────────────
     const actualMenuPrice = numCell(42, 7);
 
-    // ── Method of Preparation (rows 33-39, col 0-5) ──────────────
-    // "Method of Preparation" label is in row 33 col 0; text is in col 0-4 rows 34-39
+    // ── Method of Preparation (rows 33-45, col 0-4) ──────────────
+    // "Method of Preparation" label is in row 33 (idx 32) col 0.
+    // The cells below are merged in pairs, so XLSX.js places text only in
+    // the first row of each merged pair. We scan rows 33–54 (idx 32-53)
+    // and collect any non-empty left-column text, skipping the label itself.
+    // We stop early once we hit a right-side-only row (no left content for
+    // 3 consecutive rows) to avoid picking up stray cells.
     const methodLines: string[] = [];
-    for (let r = 33; r <= 39; r++) {
+    let methodEmptyStreak = 0;
+    for (let r = 32; r <= 53; r++) {
+      let found = false;
       for (let c = 0; c <= 4; c++) {
         const v = strCell(r, c);
-        if (v && !v.toLowerCase().includes("method of preparation")) {
+        if (v && !v.toLowerCase().startsWith("method of preparation")) {
           methodLines.push(v);
+          found = true;
+          methodEmptyStreak = 0;
           break;
         }
+      }
+      if (!found) {
+        methodEmptyStreak++;
+        if (methodEmptyStreak >= 3) break;
       }
     }
     const methodOfPreparation = methodLines.join("\n").trim() || null;
 
-    // ── Plating Instructions (rows 38-44, col 9-12) ──────────────
+    // ── Plating Instructions (rows 38-55, col 9-17) ──────────────
+    // "PLATING INSTRUCTIONS" label is in row 38 (idx 37) col 9.
+    // Same merged-pair pattern — scan cols 9–17 rows 38–57 (idx 37-56).
     const platingLines: string[] = [];
-    for (let r = 37; r <= 44; r++) {
-      for (let c = 9; c <= 12; c++) {
+    let platingEmptyStreak = 0;
+    for (let r = 37; r <= 56; r++) {
+      let found = false;
+      for (let c = 9; c <= 17; c++) {
         const v = strCell(r, c);
-        if (v && !v.toUpperCase().includes("PLATING INSTRUCTIONS")) {
+        if (v && !v.toUpperCase().startsWith("PLATING INSTRUCTIONS")) {
           platingLines.push(v);
+          found = true;
+          platingEmptyStreak = 0;
           break;
         }
+      }
+      if (!found) {
+        platingEmptyStreak++;
+        if (platingEmptyStreak >= 3) break;
       }
     }
     const platingInstructions = platingLines.join("\n").trim() || null;
