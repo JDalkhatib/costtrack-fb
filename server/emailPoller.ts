@@ -77,12 +77,17 @@ async function pollInbox(user: string, pass: string, restaurantId: number | null
     connection = await imaps.connect(config);
     await connection.openBox("INBOX");
 
-    const messages = await connection.search(["UNSEEN"], {
+    // Search ALL messages — we track what's been processed via processed_emails table,
+    // so we don't rely on the UNSEEN flag (Gmail sometimes doesn't set it reliably).
+    // Only look at the last 90 days to cap the search window.
+    const since = new Date();
+    since.setDate(since.getDate() - 90);
+    const messages = await connection.search([["SINCE", since.toDateString()]], {
       bodies: ["HEADER", ""],
       markSeen: false,
       struct: true,
     });
-    console.log(`[email] ${label}: ${messages.length} unseen message(s)`);
+    console.log(`[email] ${label}: ${messages.length} message(s) in last 90 days`);
 
     let imported = 0;
     let skipped = 0;
@@ -129,6 +134,25 @@ async function pollInbox(user: string, pass: string, restaurantId: number | null
         const pdfBuffer: Buffer = attachment.content;
         try {
           const invoiceData = await parsePdfInvoice(pdfBuffer);
+
+          // Dedup: skip if an invoice with the same number+vendor already exists for this restaurant
+          const dupQuery = supabase
+            .from("invoices")
+            .select("id")
+            .eq("invoice_number", invoiceData.invoiceNumber)
+            .eq("vendor", invoiceData.vendor);
+          if (restaurantId !== null) {
+            dupQuery.eq("restaurant_id", restaurantId);
+          } else {
+            dupQuery.is("restaurant_id", null);
+          }
+          const { data: existing } = await dupQuery.maybeSingle();
+          if (existing) {
+            console.log(`[email] ${label}: Skipping duplicate invoice ${invoiceData.invoiceNumber} (already exists)`);
+            await markProcessed({ messageId, subject, sender: from, status: "processed", invoiceId: existing.id });
+            continue;
+          }
+
           const invoice = await storage.createInvoice({
             invoiceNumber: invoiceData.invoiceNumber,
             vendor: invoiceData.vendor,
@@ -197,9 +221,18 @@ export async function pollInvoiceEmails() {
     return;
   }
 
-  console.log(`[email] Polling ${inboxes.length} inbox(es)...`);
+  // De-duplicate: if a restaurant inbox uses the same address as the global inbox,
+  // prefer the restaurant-scoped entry (has restaurantId) and drop the global one.
+  const restaurantEmails = new Set(
+    inboxes.filter((i) => i.restaurantId !== null).map((i) => i.user.toLowerCase())
+  );
+  const deduped = inboxes.filter(
+    (i) => i.restaurantId !== null || !restaurantEmails.has(i.user.toLowerCase())
+  );
+
+  console.log(`[email] Polling ${deduped.length} inbox(es)...`);
   // Poll all inboxes in parallel
-  await Promise.allSettled(inboxes.map((inbox) => pollInbox(inbox.user, inbox.pass, inbox.restaurantId, inbox.label)));
+  await Promise.allSettled(deduped.map((inbox) => pollInbox(inbox.user, inbox.pass, inbox.restaurantId, inbox.label)));
 }
 
 // ── Scheduler ────────────────────────────────────────────────
