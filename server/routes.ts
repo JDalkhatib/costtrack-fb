@@ -7,6 +7,7 @@ import { storage } from "./storage";
 import { insertInvoiceSchema, insertLineItemSchema } from "@shared/schema";
 import { parsePdfInvoice } from "./pdfParser";
 import { generateInvoiceWorkbook } from "./excelExport";
+import { parseExcelCostCards } from "./excelRecipeImport";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -271,6 +272,60 @@ export function registerRoutes(httpServer: Server, app: Express) {
       res.json(results);
     } catch (err: any) {
       res.status(500).json({ error: err?.message });
+    }
+  });
+
+  // ── Excel cost card import ─────────────────────────────────
+  const xlsUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      const ok =
+        file.mimetype === "application/vnd.ms-excel" ||
+        file.mimetype === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+        file.originalname.endsWith(".xls") ||
+        file.originalname.endsWith(".xlsx");
+      cb(null, ok);
+    },
+  });
+
+  app.post("/api/recipes/import-excel", xlsUpload.single("file"), async (req, res) => {
+    try {
+      if (!req.auth) return res.status(401).json({ error: "Unauthorized" });
+      const restaurantId = req.auth.restaurantId;
+      if (!restaurantId) return res.status(403).json({ error: "Restaurant login required" });
+      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+      const cards = parseExcelCostCards(req.file.buffer);
+      if (cards.length === 0) {
+        return res.status(422).json({ error: "No valid cost card sheets found in this file. Make sure the sheet contains 'STANDARD RECIPE COST CARD' in row 2." });
+      }
+
+      const imported: { id: number; name: string; sheetName: string }[] = [];
+      const skipped: { sheetName: string; reason: string }[] = [];
+
+      for (const card of cards) {
+        // Skip if a recipe with this exact name already exists for this restaurant
+        const existing = await storage.getRecipes(restaurantId);
+        const duplicate = existing.find(
+          (r) => r.name.toLowerCase().trim() === card.recipe.name.toLowerCase().trim()
+        );
+        if (duplicate) {
+          skipped.push({ sheetName: card.sheetName, reason: `Recipe "${card.recipe.name}" already exists (id ${duplicate.id})` });
+          continue;
+        }
+
+        const recipe = await storage.createRecipe(card.recipe, restaurantId);
+        if (card.ingredients.length > 0) {
+          await storage.upsertRecipeIngredients(recipe.id, card.ingredients);
+        }
+        imported.push({ id: recipe.id, name: recipe.name, sheetName: card.sheetName });
+      }
+
+      res.status(201).json({ imported, skipped });
+    } catch (err: any) {
+      console.error("[excel-import]", err);
+      res.status(500).json({ error: err?.message ?? "Import failed" });
     }
   });
 

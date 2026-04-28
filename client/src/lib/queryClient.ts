@@ -23,10 +23,15 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const isFormData = data instanceof FormData;
   const res = await fetch(`${API_BASE}${url}`, {
     method,
-    headers: authHeaders(data ? { "Content-Type": "application/json" } : {}),
-    body: data ? JSON.stringify(data) : undefined,
+    // For FormData let the browser set Content-Type (multipart + boundary).
+    // For plain objects, send JSON.
+    headers: isFormData
+      ? authHeaders()
+      : authHeaders(data ? { "Content-Type": "application/json" } : {}),
+    body: isFormData ? data : data ? JSON.stringify(data) : undefined,
   });
 
   await throwIfResNotOk(res);
