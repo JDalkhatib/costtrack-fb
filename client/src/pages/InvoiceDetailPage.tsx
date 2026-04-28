@@ -48,24 +48,8 @@ import { format } from "date-fns";
 import { useState } from "react";
 import { CATEGORY_COLORS } from "@/lib/categoryColors";
 
-// Cost per unit calculation
-function calcCostPerUnit(item: LineItem): { costPerUnit: number; label: string } {
-  // If packSize provided: each case has packSize units
-  // costPerUnit = totalCost / (quantity * packSize)
-  // display as $/packUnit
-  if (item.packSize && item.packUnit && item.packSize > 0) {
-    const totalUnits = item.quantity * item.packSize;
-    return {
-      costPerUnit: item.totalCost / totalUnits,
-      label: `/${item.packUnit}`,
-    };
-  }
-  // Simple: totalCost / quantity
-  return {
-    costPerUnit: item.quantity > 0 ? item.totalCost / item.quantity : 0,
-    label: `/${item.unit}`,
-  };
-}
+// Cost per unit calculation — shared with CategoriesPage
+import { calcCostPerUnit } from "@/lib/costCalc";
 
 const itemFormSchema = insertLineItemSchema
   .omit({ invoiceId: true })

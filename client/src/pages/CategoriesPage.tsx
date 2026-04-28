@@ -6,19 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "wouter";
 import { ChevronRight } from "lucide-react";
 import { CATEGORY_COLORS } from "@/lib/categoryColors";
-
-function calcCostPerUnit(item: LineItem): { costPerUnit: number; label: string } {
-  if (item.packSize && item.packUnit && item.packSize > 0) {
-    return {
-      costPerUnit: item.totalCost / (item.quantity * item.packSize),
-      label: `/${item.packUnit}`,
-    };
-  }
-  return {
-    costPerUnit: item.quantity > 0 ? item.totalCost / item.quantity : 0,
-    label: `/${item.unit}`,
-  };
-}
+import { calcCostPerUnit } from "@/lib/costCalc";
 
 export default function CategoriesPage() {
   const { data: items, isLoading } = useQuery<LineItem[]>({

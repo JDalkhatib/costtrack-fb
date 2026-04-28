@@ -72,6 +72,84 @@ function normalizeUnit(raw: string): string {
 }
 
 /**
+ * Normalizes complex packUnit strings like "bag of 10 lb" or "carton of 32 oz"
+ * into a simple base unit, multiplying the weight/count into packSize.
+ *
+ * Examples:
+ *   (1, "bag of 10 lb")   → { packSize: 10, packUnit: "lb" }
+ *   (4, "tub of 5 lb")    → { packSize: 20, packUnit: "lb" }
+ *   (12, "carton of 32 oz") → { packSize: 384, packUnit: "oz" }
+ *   (1, "each of 3 oz")   → { packSize: 3, packUnit: "oz" }
+ *   (2, "loaf of 6 lb")   → { packSize: 12, packUnit: "lb" }
+ *   (2, "lb")             → { packSize: 2, packUnit: "lb" }  (already simple)
+ */
+export function normalizePackUnit(
+  qty: number,         // quantity of cases/bags ordered
+  packSize: number,    // raw packSize from Claude
+  packUnit: string,    // raw packUnit from Claude (may be complex)
+): { packSize: number; packUnit: string } {
+  if (!packUnit) return { packSize, packUnit };
+
+  const raw = packUnit.trim();
+
+  // Already a simple base unit — no parsing needed
+  const simpleUnits = new Set(["lb", "oz", "kg", "g", "each", "gallon", "quart", "pint",
+    "liter", "fl oz", "can", "roll", "sheet", "dozen", "bottle", "bag", "box", "pack"]);
+  if (simpleUnits.has(raw.toLowerCase())) return { packSize, packUnit: raw.toLowerCase() };
+
+  // Try to parse "N <container> of M <unit>" or "<container> of M <unit>"
+  // e.g. "bag of 10 lb", "tub of 5 lb", "carton of 32 oz", "each of 3 oz", "loaf of 12 oz"
+  // Also handles "6 lb" (just a number + unit with no "of")
+  const ofPattern = /^(?:\d+\s+\w+\s+of\s+)?(\d+\.?\d*)\s+([a-z]+)$/i;
+  const match = raw.match(ofPattern);
+  if (match) {
+    const innerQty = parseFloat(match[1]);
+    const baseUnit = normalizeUnit(match[2]);
+    if (innerQty > 0 && baseUnit) {
+      return {
+        packSize: packSize * innerQty,
+        packUnit: baseUnit,
+      };
+    }
+  }
+
+  // Try "pack of N" or "box of N" (count-based, no weight unit)
+  const packOfPattern = /^(?:pack|box|set|bundle)\s+of\s+(\d+)$/i;
+  const packOfMatch = raw.match(packOfPattern);
+  if (packOfMatch) {
+    return {
+      packSize: packSize * parseFloat(packOfMatch[1]),
+      packUnit: "each",
+    };
+  }
+
+  // Try plain "N unit" without "of" — e.g. "32 oz", "5 lb"
+  const plainPattern = /^(\d+\.?\d*)\s+([a-z]+)$/i;
+  const plainMatch = raw.match(plainPattern);
+  if (plainMatch) {
+    const n = parseFloat(plainMatch[1]);
+    const unit = normalizeUnit(plainMatch[2]);
+    if (n > 0 && unit) {
+      return { packSize: packSize * n, packUnit: unit };
+    }
+  }
+
+  // Fallback: try to extract any unit word from the string
+  const words = raw.toLowerCase().split(/\s+/);
+  for (const w of words.reverse()) {
+    const u = normalizeUnit(w);
+    if (simpleUnits.has(u)) {
+      const numMatch = raw.match(/(\d+\.?\d*)/);
+      const n = numMatch ? parseFloat(numMatch[1]) : 1;
+      return { packSize: packSize * n, packUnit: u };
+    }
+  }
+
+  // Can't parse — return as-is
+  return { packSize, packUnit: raw };
+}
+
+/**
  * Tries to extract pack size and unit from an item name/description.
  * Handles common foodservice formats:
  *   "4/1 GAL", "2/5 LB", "6/10 CAN", "12/24OZ", "36CT", "10 LB BAG", "1/30 LB"
@@ -175,38 +253,35 @@ Rules:
 
 PACK SIZE EXTRACTION — THIS IS THE MOST IMPORTANT PART:
 Foodservice invoices almost always show a pack/size breakdown in the item description. You MUST extract this.
-Common formats you will see:
-  - "4/1 GAL" → packSize: 4, packUnit: "gallon"  (4 jugs of 1 gallon each)
-  - "6/10 CAN" → packSize: 6, packUnit: "can"  (6 cans per case)
-  - "12/24 OZ" → packSize: 12, packUnit: "oz"  (12 units of 24 oz)
-  - "24/16OZ" → packSize: 24, packUnit: "oz"
-  - "2/5 LB" → packSize: 2, packUnit: "lb"  (2 bags of 5 lb = 10 lb total per case)
-  - "10 LB BAG" → packSize: 10, packUnit: "lb"  (bag sold by weight)
-  - "80/3 OZ" → packSize: 80, packUnit: "oz"
-  - "1/30 LB" → packSize: 30, packUnit: "lb"
-  - "CS/24" → packSize: 24, packUnit: "each"
-  - "36CT" or "36 COUNT" → packSize: 36, packUnit: "each"
-  - "1 EA" with weight in description → use the weight as packSize and packUnit
 
-For weight-sold items (produce, meat sold by the pound):
-  - If unit is already "lb" or "oz", leave packSize null — the cost per lb is totalCost / quantity
+CRITICAL RULE: packUnit must ALWAYS be a simple base unit from this list ONLY:
+  lb, oz, kg, g, each, gallon, quart, pint, liter, fl oz, can, roll, sheet, dozen
+NEVER put descriptions like "bag of 10 lb" or "carton of 32 oz" in packUnit.
+Instead, fold the weight/count INTO packSize and use the simple base unit.
 
-For items sold by the case with a pack/size breakdown:
-  - packSize = the COUNT or WEIGHT per case (the second number in formats like X/Y)
-  - packUnit = the unit of that count/weight (oz, lb, gallon, each, can, etc.)
-  - The cost per unit will be calculated as: totalCost / (quantity × packSize)
+Common formats you will see on invoices:
+  "4/1 GAL"  → qty: cases, packSize: 4,  packUnit: "gallon"  (4 gallons per case)
+  "6/10 CAN" → qty: cases, packSize: 6,  packUnit: "can"     (6 cans per case)
+  "12/24 OZ" → qty: cases, packSize: 288, packUnit: "oz"     (12 × 24 oz = 288 oz per case)
+  "2/5 LB"   → qty: cases, packSize: 10, packUnit: "lb"      (2 × 5 lb = 10 lb per case)
+  "10 LB BAG"→ qty: bags,  packSize: 10, packUnit: "lb"
+  "1/30 LB"  → qty: cases, packSize: 30, packUnit: "lb"
+  "36CT"     → qty: cases, packSize: 36, packUnit: "each"
+  "6 bags of 5 lb" → packSize: 30, packUnit: "lb"  (6 × 5 = 30 lb per case)
+  "12 cartons of 32 oz" → packSize: 384, packUnit: "oz"  (12 × 32 = 384 oz per case)
+  "4 tubs of 5 lb" → packSize: 20, packUnit: "lb"  (4 × 5 = 20 lb per case)
+  "36 each of 1 lb" → packSize: 36, packUnit: "lb"  (36 × 1 = 36 lb per case)
+  "24 each of 3 oz" → packSize: 72, packUnit: "oz"  (24 × 3 = 72 oz per case)
+  "2 bags of 10 lb" → packSize: 20, packUnit: "lb"
+  "1 wheel of 6 lb" → packSize: 6, packUnit: "lb"
 
-Examples:
-  Item: "CHICKEN BREAST 2/5 LB", qty: 3 cases, total: $45.00
-  → unit: "case", packSize: 5, packUnit: "lb"  [gives $3.00/lb]
+For X/Y format: packSize = X * Y (total weight/count per case). packUnit = base unit only.
+For weight-sold items (produce, meat sold by lb): if unit is already "lb" or "oz", leave packSize null.
 
-  Item: "OLIVE OIL 4/1 GAL", qty: 2 cases, total: $80.00
-  → unit: "case", packSize: 4, packUnit: "gallon"  [gives $10.00/gallon]
+The cost per unit is always: totalCost / (quantity × packSize)
+So: $126.47 / (1 case × 60 lb) = $2.11/lb — not "per bag of 10 lb".
 
-  Item: "PAPER TOWEL 12/85 SH", qty: 1 case, total: $24.00
-  → unit: "case", packSize: 12, packUnit: "roll"
-
-Always extract packSize and packUnit when ANY size/count/weight info appears in the description.
+Always extract packSize and packUnit when ANY size/count/weight info appears.
 Only leave packSize null if the item is sold purely by weight (lb/oz) with no case breakdown.
 
 Return this exact JSON structure:
@@ -276,6 +351,13 @@ Return this exact JSON structure:
         return { ...item, packSize: extracted.packSize, packUnit: extracted.packUnit, unit: "case" };
       }
       return item;
+    });
+
+    // Normalize complex packUnit strings (e.g. "bag of 10 lb" → packSize=10, packUnit="lb")
+    parsed.items = parsed.items.map((item) => {
+      if (!item.packSize || !item.packUnit) return item;
+      const { packSize, packUnit } = normalizePackUnit(item.quantity, item.packSize, item.packUnit);
+      return { ...item, packSize, packUnit };
     });
 
     return parsed;
