@@ -224,18 +224,38 @@ export function registerRoutes(httpServer: Server, app: Express) {
   });
 
   // ── Recent Auto-Imports ────────────────────────────────────
+  // Only returns imports whose linked invoice belongs to the current restaurant.
   app.get("/api/auto-imports/recent", async (req, res) => {
     try {
+      if (!req.auth) return res.status(401).json({ error: "Unauthorized" });
+      const restaurantId = req.auth.restaurantId;
       const sb = (await import("./supabase")).default;
-      let q = sb
+
+      // Fetch recent processed emails
+      const { data: emails, error } = await sb
         .from("processed_emails")
         .select("id, subject, sender, received_at, invoice_id, status, error_message")
         .eq("status", "processed")
+        .not("invoice_id", "is", null)
         .order("received_at", { ascending: false })
-        .limit(10);
-      const { data, error } = await q;
+        .limit(20);
       if (error) throw new Error(error.message);
-      res.json(data ?? []);
+
+      if (!emails || emails.length === 0) return res.json([]);
+
+      // Filter to only invoices that belong to this restaurant
+      const invoiceIds = emails.map((e: any) => e.invoice_id).filter(Boolean);
+      const { data: invoices } = await sb
+        .from("invoices")
+        .select("id, restaurant_id")
+        .in("id", invoiceIds);
+
+      const restaurantInvoiceIds = new Set(
+        (invoices ?? []).filter((inv: any) => inv.restaurant_id === restaurantId).map((inv: any) => inv.id)
+      );
+
+      const scoped = emails.filter((e: any) => restaurantInvoiceIds.has(e.invoice_id));
+      res.json(scoped.slice(0, 10));
     } catch (err: any) {
       res.status(500).json({ error: err?.message });
     }

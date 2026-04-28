@@ -135,20 +135,22 @@ async function pollInbox(user: string, pass: string, restaurantId: number | null
         try {
           const invoiceData = await parsePdfInvoice(pdfBuffer);
 
-          // Dedup: skip if an invoice with the same number+vendor already exists for this restaurant
+          // Dedup: skip if an invoice with the same number+vendor already exists
+          // - For restaurant-scoped inboxes: check within that restaurant
+          // - For global inbox (restaurantId=null): check across ALL restaurants to
+          //   prevent creating null-restaurant duplicates of already-imported invoices
           const dupQuery = supabase
             .from("invoices")
-            .select("id")
+            .select("id, restaurant_id")
             .eq("invoice_number", invoiceData.invoiceNumber)
             .eq("vendor", invoiceData.vendor);
           if (restaurantId !== null) {
             dupQuery.eq("restaurant_id", restaurantId);
-          } else {
-            dupQuery.is("restaurant_id", null);
           }
+          // For global (null), no restaurant filter — match any existing invoice
           const { data: existing } = await dupQuery.maybeSingle();
           if (existing) {
-            console.log(`[email] ${label}: Skipping duplicate invoice ${invoiceData.invoiceNumber} (already exists)`);
+            console.log(`[email] ${label}: Skipping duplicate invoice ${invoiceData.invoiceNumber} (already exists, id=${existing.id})`);
             await markProcessed({ messageId, subject, sender: from, status: "processed", invoiceId: existing.id });
             continue;
           }
