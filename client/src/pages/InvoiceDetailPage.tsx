@@ -346,7 +346,7 @@ function PriceTrendBadge({ item, currentInvoiceId }: { item: LineItem; currentIn
 
 function LineItemRow({ item, invoiceId }: { item: LineItem; invoiceId: number }) {
   const { toast } = useToast();
-  const { costPerUnit, label } = calcCostPerUnit(item);
+  const { costPerUnit, label, isContainerUnit } = calcCostPerUnit(item);
   const color = CATEGORY_COLORS[item.category] ?? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
 
   const deleteMutation = useMutation({
@@ -384,11 +384,15 @@ function LineItemRow({ item, invoiceId }: { item: LineItem; invoiceId: number })
       <td className="py-2.5 px-3 text-right">
         <div className="flex flex-col items-end gap-0.5">
           <span
-            className="font-semibold text-sm text-primary tabular-nums"
+            className={`font-semibold text-sm tabular-nums ${isContainerUnit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}
             data-testid={`text-cost-per-unit-${item.id}`}
+            title={isContainerUnit ? 'Pack unit — inner count not available on invoice' : undefined}
           >
             ${costPerUnit.toFixed(4)}{label}
           </span>
+          {isContainerUnit && (
+            <span className="text-xs text-amber-500/80">unit count unknown</span>
+          )}
           <PriceTrendBadge item={item} currentInvoiceId={invoiceId} />
         </div>
       </td>

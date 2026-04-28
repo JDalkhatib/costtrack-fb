@@ -90,7 +90,7 @@ export default function CategoriesPage() {
                     </thead>
                     <tbody>
                       {catItems.map((item) => {
-                        const { costPerUnit, label } = calcCostPerUnit(item);
+                        const { costPerUnit, label, isContainerUnit } = calcCostPerUnit(item);
                         return (
                           <tr
                             key={item.id}
@@ -109,9 +109,12 @@ export default function CategoriesPage() {
                               )}
                             </td>
                             <td className="py-2.5 px-4 text-right">
-                              <span className="font-semibold text-primary tabular-nums">
+                              <span className={`font-semibold tabular-nums ${isContainerUnit ? 'text-amber-600 dark:text-amber-400' : 'text-primary'}`}>
                                 ${costPerUnit.toFixed(4)}{label}
                               </span>
+                              {isContainerUnit && (
+                                <span className="block text-xs text-amber-500/80">unit count unknown</span>
+                              )}
                             </td>
                             <td className="py-2.5 px-4 text-right">
                               <Link href={`/invoices/${item.invoiceId}`}>
